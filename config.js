@@ -305,13 +305,19 @@ window.CONFIG = {
   // ---------- CHAPTER 4 — PENSIEVE ----------
   pensieve: {
     intro: "Tap the bowl. Let the memories out.",
-    photoCount: 5, // EDIT — matches number of files you drop in /photos/
+    photoCount: 11, // matches /photos/1.jpg – 11.jpg
     captions: [
       "One of the good days.", // EDIT
       "This one, we still talk about.", // EDIT
       "No filter could've saved this one.", // EDIT
       "Exhibit A in every argument about who's the funnier one.", // EDIT
       "Still one of my favourite photos of us.", // EDIT
+      "Proof this happened, in case anyone asks.", // EDIT
+      "Kept this one for a reason.", // EDIT
+      "Somewhere in here, a story neither of us tells right.", // EDIT
+      "This one aged well. Unlike some of our decisions that day.", // EDIT
+      "Filed under: do not delete, ever.", // EDIT
+      "Last one. Saving the best for last, obviously.", // EDIT
     ],
   },
 
