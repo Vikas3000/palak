@@ -77,6 +77,23 @@ button{
 
 .next-btn{ display: block; margin: 1.6em auto 0; }
 
+/* ---------- ambient background depth ---------- */
+.ambient-dust{ position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.ambient-dust span{
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,163,91,0.5), rgba(201,163,91,0));
+  animation-name: dustDrift; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+  opacity: 0.5;
+}
+@keyframes dustDrift{
+  0%{ transform: translate(0,0); opacity: 0; }
+  10%{ opacity: 0.6; }
+  50%{ transform: translate(18px, -34px); }
+  90%{ opacity: 0.5; }
+  100%{ transform: translate(-14px, -60px); opacity: 0; }
+}
+.book{ position: relative; z-index: 2; }
+
 /* ---------- book layout ---------- */
 .book{
   position: relative;
@@ -395,7 +412,11 @@ button{
 .fx-canvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .finale-stage{ position: relative; z-index: 2; display:flex; flex-direction:column; align-items:center; width:100%; }
 .finale-sky{ width:100%; height: 90px; }
-.finale-cake{ font-size: 3.4rem; margin: 0.4em 0; }
+.finale-cake{ margin: 0.6em 0 0.2em; width: min(300px, 82vw); filter: drop-shadow(0 14px 22px rgba(0,0,0,0.45)); }
+.cake-illustration{ width: 100%; height: auto; display: block; }
+.finale-cake-label{ font-size: 0.95rem; margin: 0.3em 0 0; opacity: 0.9; }
+.cake-preview{ width: min(240px, 70vw); margin: 0.6em auto; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.4)); }
+.cake-preview .cake-illustration{ width: 100%; height: auto; }
 .mic-hint{ font-size: 0.85rem; opacity:0.75; font-family: var(--font-hand); }
 .finale-text{ font-family: var(--font-hand); font-size: 1.8rem; text-align:center; margin: 0.6em 0; }
 .lantern-release{ margin-top: 1em; text-align:center; }
@@ -439,20 +460,29 @@ button{
 .overlay-close{ position: fixed; top: calc(var(--safe-top) + 10px); right: 16px; font-size:1.4rem; z-index: 110; width:40px; height:40px; }
 .game-panel{ max-width: 480px; margin: 0 auto; text-align:center; }
 .skip-game-btn{ display:block; margin: 0.4em auto 0.8em; }
-.potions-stage{ display:flex; flex-direction:column; align-items:center; gap: 0.6em; margin: 1em 0; }
-.recipe-scroll{ font-family: var(--font-hand); font-size: 1rem; background: rgba(255,255,255,0.08); border-radius: 8px; padding: 0.6em 1em; }
-.cauldron{ font-size: 3.6rem; }
+.potions-stage{ display:flex; flex-direction:column; align-items:center; gap: 0.6em; margin: 0.6em 0; }
+.potions-progress{ display:flex; gap:0.4em; justify-content:center; margin: 0.6em 0 0.3em; }
+.potions-progress .dot{ width:10px; height:10px; border-radius:50%; background: rgba(255,255,255,0.15); transition: background .25s, transform .25s; }
+.potions-progress .dot.done{ background: var(--gold); transform: scale(1.15); }
+.potions-hint{ font-family: var(--font-hand); font-size: 1.2rem; color: var(--gold); min-height: 1.6em; margin: 0 0 0.4em; transition: opacity .2s; }
+.cauldron{ font-size: 3.6rem; transition: transform .15s, filter .15s; }
+.cauldron.drag-over{ transform: scale(1.15); filter: drop-shadow(0 0 14px var(--gold)); }
 .ingredient-tray{ display:flex; flex-wrap:wrap; gap: 0.6em; justify-content:center; }
 .ingredient{
   background: rgba(255,255,255,0.1); border-radius: 8px; padding: 0.6em 0.8em; min-height:44px;
-  touch-action: none; cursor: grab; user-select:none;
+  touch-action: none; cursor: grab; user-select:none; transition: box-shadow .15s;
 }
+.ingredient.next-needed{ box-shadow: 0 0 0 2px var(--gold); }
 .ingredient.used{ opacity: 0.25; pointer-events:none; }
-.stir-circle{ font-size: 3rem; margin: 0.6em auto; width: 100px; height:100px; display:flex; align-items:center; justify-content:center; touch-action:none; }
+.shake{ animation: shakeX 0.4s; }
+@keyframes shakeX{ 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-6px); } 75%{ transform: translateX(6px); } }
+.stir-stage{ position: relative; }
+.stir-ring{ position:absolute; left:50%; top: 2.2em; transform: translateX(-50%); width: 110px; height:110px; pointer-events:none; }
+#stirRingProgress{ transition: stroke-dashoffset .1s linear; }
+.stir-circle{ font-size: 3rem; margin: 0.6em auto; width: 100px; height:100px; display:flex; align-items:center; justify-content:center; touch-action:none; position:relative; z-index:1; }
 .decorate-row{ display:flex; gap:0.5em; flex-wrap:wrap; justify-content:center; margin: 0.5em 0; }
-.decorate-row button{ background: rgba(255,255,255,0.1); padding:0.5em 0.8em; border-radius: 6px; min-height:40px; }
+.decorate-row button{ background: rgba(255,255,255,0.1); padding:0.5em 0.8em; border-radius: 6px; min-height:40px; transition: background .15s, transform .1s; }
 .decorate-row button.selected{ background: var(--gold); color: var(--ink); }
-.cake-preview{ font-size: 3.4rem; margin: 0.6em 0; }
 .cake-name-input{ display:block; margin: 0.6em auto; padding: 0.5em; border-radius: 6px; border:1px solid var(--gold); background: rgba(255,255,255,0.08); color: var(--parchment); text-align:center; font-family: var(--font-hand); font-size:1.1rem; }
 
 .falcon-hud{ display:flex; justify-content:space-between; font-family: var(--font-hand); font-size:1.1rem; margin: 0.4em 0; }

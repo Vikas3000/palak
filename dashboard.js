@@ -120,7 +120,11 @@ function furthestChapter(s){
 
 function render(sessions){
   $('#statSessions').textContent = sessions.length;
-  $('#statFinale').textContent = sessions.filter(s => furthestChapter(s) === 'finale').length;
+  const finaleCount = sessions.filter(s => furthestChapter(s) === 'finale').length;
+  const finaleBadge = $('#statFinale');
+  finaleBadge.textContent = finaleCount > 0 ? 'Yes' : 'Not yet';
+  finaleBadge.style.color = finaleCount > 0 ? '#5fb894' : '#e8ecec';
+  if (finaleCount > 0) $('#statFinaleSub').textContent = `${finaleCount} visit${finaleCount===1?'':'s'} reached it`;
   const openedLetterIdx = new Set();
   const gameStats = {};
   sessions.forEach(s => s.events.forEach(e => {
@@ -189,13 +193,18 @@ function renderSessionList(sessions){
     card.className = 'session-card';
     const reachedFinale = furthestChapter(s) === 'finale';
     const dur = fmtDuration(sessionDuration(s));
+    const f = furthestChapter(s);
+    const pageNum = f ? PAGE_ORDER.indexOf(f) + 1 : 0;
+    const pct = Math.round((pageNum / PAGE_ORDER.length) * 100);
     card.innerHTML = `
       <div class="session-head" data-idx="${i}">
-        <div>
+        <div style="flex:1;">
           <div>${fmtDate(s.startedAt)}</div>
           <div class="meta">${deviceLabel(s.userAgent)} · ${s.screen || '—'} · ${dur}</div>
+          <div class="progress-track"><div class="progress-fill${reachedFinale?' full':''}" style="width:${pct}%"></div></div>
+          <div class="meta">${pageNum ? `Reached chapter ${pageNum} of ${PAGE_ORDER.length}` : 'No activity'}</div>
         </div>
-        <div class="badge ${reachedFinale ? 'finale' : ''}">${reachedFinale ? 'Reached finale' : (furthestChapter(s) ? PAGE_LABELS[furthestChapter(s)] : 'No activity')}</div>
+        <div class="badge ${reachedFinale ? 'finale' : ''}">${reachedFinale ? 'Reached finale' : (f ? PAGE_LABELS[f] : '—')}</div>
       </div>
       <div class="session-body">
         <div class="timeline">${s.events.map(e => `

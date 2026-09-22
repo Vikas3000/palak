@@ -29,6 +29,7 @@
   <span id="progressText">Page 1 of 14</span>
 </div>
 
+<div class="ambient-dust" id="ambientDust" aria-hidden="true"></div>
 <main id="book" class="book">
 
   <!-- ============ CHAPTER 0: OWL LETTER ============ -->
@@ -236,13 +237,18 @@
     <h3>Potions Class</h3>
     <p id="potionsIntro"></p>
     <button class="btn-ghost small skip-game-btn" id="potionsSkip">Skip</button>
+    <div class="potions-progress" id="potionsProgress"></div>
+    <p class="potions-hint" id="potionsHint"></p>
     <div class="potions-stage">
-      <div class="recipe-scroll" id="recipeScroll"></div>
       <div class="cauldron" id="cauldron">🍯</div>
     </div>
     <div class="ingredient-tray" id="ingredientTray"></div>
     <div id="stirStage" class="stir-stage" hidden>
       <p id="stirPrompt"></p>
+      <svg class="stir-ring" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="7"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#c9a35b" stroke-width="7" stroke-linecap="round" id="stirRingProgress" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"/>
+      </svg>
       <div class="stir-circle" id="stirCircle">🌀</div>
     </div>
     <div id="decorateStage" class="decorate-stage" hidden>

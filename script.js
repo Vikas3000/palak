@@ -84,14 +84,32 @@ function initBook(){
     const dx = t.clientX - sx, dy = t.clientY - sy;
     if (Math.abs(dx) > 60 && Math.abs(dy) < 70){ if (dx < 0) goNext(); else goPrev(); }
   }, { passive: true });
+
+  // global tap micro-interaction: every button gets a satisfying press response
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('button, .balloon, .door, .quiz-option, .guess-option, .shelf-envelope, .wish-chip');
+    if (!el || prefersReducedMotion) return;
+    el.animate([{ transform: 'scale(1)' },{ transform: 'scale(0.94)' }], { duration: 90, fill: 'forwards', easing: 'ease-out' });
+  }, { passive: true });
+  document.addEventListener('pointerup', e => {
+    const el = e.target.closest('button, .balloon, .door, .quiz-option, .guess-option, .shelf-envelope, .wish-chip');
+    if (!el || prefersReducedMotion) return;
+    el.animate([{ transform: 'scale(0.94)' },{ transform: 'scale(1)' }], { duration: 220, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+  }, { passive: true });
 }
 
 let pageTransitioning = false;
 function goNext(){ if (!pageTransitioning && currentIndex < pageOrder.length - 1) showPage(currentIndex + 1); }
 function goPrev(){ if (!pageTransitioning && currentIndex > 0) showPage(currentIndex - 1); }
 
+const PAGE_EXIT_HOOKS = {
+  quiet: () => { try{ stopAllAmbient(); }catch(e){} },
+  finale: () => { try{ stopFinaleMic(); }catch(e){} },
+};
 function showPage(idx){
   if (idx === currentIndex || pageTransitioning) return;
+  const leavingId = pageOrder[currentIndex];
+  if (PAGE_EXIT_HOOKS[leavingId]) PAGE_EXIT_HOOKS[leavingId]();
   pageTransitioning = true;
   const forward = idx > currentIndex;
   const oldEl = pages[pageOrder[currentIndex]];
@@ -176,6 +194,12 @@ function initOwl(){
     $('#waxSeal').classList.add('tapped');
     vibrate([30, 40, 30]);
     track('owl_letter_opened');
+    if (window.confetti && !prefersReducedMotion){
+      const r = $('#waxSeal').getBoundingClientRect();
+      confetti({ particleCount: 26, spread: 360, startVelocity: 16, gravity: 0.5, scalar: 0.55, ticks: 90,
+        origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height/2) / window.innerHeight },
+        colors: ['#c9a35b', '#eef3f3', '#5b1a1a'] });
+    }
     setTimeout(() => {
       $('#envelope').style.display = 'none';
       $('#letterInner').hidden = false;
@@ -391,6 +415,97 @@ function balloonSVG(base, light){
   </svg>`;
 }
 
+/* ---------- shared cake art ---------- */
+let cakeSvgCounter = 0;
+const ICING_COLORS = {
+  Emerald: { base: '#0f3d2e', light: '#4a8a6d' },
+  Silver: { base: '#9fb0b3', light: '#eef3f3' },
+  Cream: { base: '#e2d3a4', light: '#fbf5e2' },
+  Rose: { base: '#b97878', light: '#f0d0d0' },
+};
+const FLAVOUR_COLORS = {
+  Chocolate: { base: '#5a3825', crumb: '#7a4d30' },
+  Vanilla: { base: '#f0dfa8', crumb: '#f7ecc4' },
+  'Red Velvet': { base: '#7a2035', crumb: '#93283f' },
+  Butterscotch: { base: '#b97a3d', crumb: '#cf974f' },
+};
+const TOPPING_GLYPH = { Sprinkles: null, Stars: '⭐', 'A tiny falcon': '🦅', Books: '📖', 'A snake': '🐍' };
+const TOPPING_SLOTS = [[-48, -4], [-20, -14], [10, -15], [38, -5], [-2, 2]];
+
+function icingBand(x, y, w, gradId, drips){
+  const dripW = w / drips;
+  let d = '';
+  for (let i = 0; i < drips; i++){
+    const cx = x + dripW * (i + 0.5);
+    const len = 8 + ((i * 37) % 3) * 5;
+    d += `<path d="M${(cx - dripW * 0.42).toFixed(1)},${y + 13} Q${cx.toFixed(1)},${(y + 13 + len).toFixed(1)} ${(cx + dripW * 0.42).toFixed(1)},${y + 13} Z" fill="url(#${gradId})"/>`;
+  }
+  return `<rect x="${x}" y="${y}" width="${w}" height="15" rx="7" fill="url(#${gradId})"/>${d}`;
+}
+
+function sprinkles(cx, cy, n){
+  const cols = ['#0f3d2e', '#c9a35b', '#b97878', '#eef3f3', '#e2d3a4'];
+  let out = '';
+  for (let i = 0; i < n; i++){
+    const a = (i * 137.5) % 360;
+    const r = 8 + (i % 4) * 8;
+    const x = cx + Math.cos(a * Math.PI / 180) * r * 0.55;
+    const y = cy + Math.sin(a * Math.PI / 180) * r * 0.22;
+    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="5" height="2" rx="1" fill="${cols[i % cols.length]}" transform="rotate(${(a % 180).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+  }
+  return out;
+}
+
+function cakeSVG(state, opts){
+  opts = opts || {};
+  const candleCount = opts.candleCount || 0;
+  const icing = ICING_COLORS[state.icing] || ICING_COLORS.Emerald;
+  const flavour = FLAVOUR_COLORS[state.flavour] || FLAVOUR_COLORS.Chocolate;
+  const uid = cakeSvgCounter++;
+  const gBody = 'cakeBody' + uid, gIcing = 'cakeIcing' + uid, gTop = 'cakeTop' + uid, gFlame = 'cakeFlame' + uid;
+
+  let candlesSvg = '';
+  for (let i = 0; i < candleCount; i++){
+    const x = 108 + (i + 0.5) * (104 / candleCount);
+    const stickColor = i % 2 === 0 ? '#f2e9d6' : icing.light;
+    candlesSvg += `
+      <rect x="${(x-2).toFixed(1)}" y="52" width="4" height="20" rx="1.5" fill="${stickColor}"/>
+      <g class="candle" data-idx="${i}" style="opacity:0.35; transition: opacity .25s;">
+        <circle cx="${x.toFixed(1)}" cy="49" r="7" fill="url(#${gFlame})" opacity="0.55"/>
+        <path d="M${x.toFixed(1)} 42 Q${(x+4).toFixed(1)} 48 ${x.toFixed(1)} 54 Q${(x-4).toFixed(1)} 48 ${x.toFixed(1)} 42 Z" fill="#ffce6b"/>
+      </g>`;
+  }
+
+  const toppings = (state.toppings || []).map((t, i) => {
+    const slot = TOPPING_SLOTS[i % TOPPING_SLOTS.length];
+    const x = 160 + slot[0], y = 96 + slot[1];
+    if (t === 'Sprinkles') return sprinkles(x, y, 7);
+    const glyph = TOPPING_GLYPH[t];
+    return glyph ? `<text x="${x}" y="${y}" font-size="16" text-anchor="middle">${glyph}</text>` : '';
+  }).join('');
+
+  const nameText = state.name ? `<text x="160" y="215" font-family="Caveat, cursive" font-size="26" fill="${icing.light}" text-anchor="middle" style="filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))">${escapeHtml(state.name)}</text>` : '';
+
+  return `<svg viewBox="0 0 320 260" class="cake-illustration">
+    <defs>
+      <radialGradient id="${gBody}" cx="35%" cy="20%" r="90%"><stop offset="0%" stop-color="${flavour.crumb}"/><stop offset="100%" stop-color="${flavour.base}"/></radialGradient>
+      <linearGradient id="${gIcing}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${icing.light}"/><stop offset="100%" stop-color="${icing.base}"/></linearGradient>
+      <radialGradient id="${gTop}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${icing.light}"/><stop offset="100%" stop-color="${icing.base}"/></radialGradient>
+      <radialGradient id="${gFlame}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff3c4"/><stop offset="100%" stop-color="#ffb238" stop-opacity="0"/></radialGradient>
+    </defs>
+    <ellipse cx="160" cy="240" rx="118" ry="13" fill="#000" opacity="0.16"/>
+    <rect x="45" y="150" width="230" height="82" rx="16" fill="url(#${gBody})"/>
+    ${icingBand(45, 144, 230, gIcing, 9)}
+    <rect x="85" y="86" width="150" height="70" rx="14" fill="url(#${gBody})"/>
+    ${icingBand(85, 80, 150, gIcing, 6)}
+    <ellipse cx="160" cy="80" rx="75" ry="15" fill="url(#${gTop})"/>
+    ${toppings}
+    ${candlesSvg}
+    ${nameText}
+  </svg>`;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 /* ============================================================
    BALLOON POP
    ============================================================ */
@@ -522,9 +637,30 @@ function openGamesOverlay(which){
 function closeGamesOverlay(){ $('#gamesOverlay').hidden = true; pauseFalcon(); }
 
 /* ---------- Potions ---------- */
+function playBlip(ok, pitch){
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = ok ? 'triangle' : 'sine';
+  osc.frequency.setValueAtTime(ok ? (520 + (pitch||0)*40) : 260, t);
+  if (ok) osc.frequency.exponentialRampToValueAtTime(520 + (pitch||0)*40 + 180, t + 0.12);
+  else osc.frequency.exponentialRampToValueAtTime(160, t + 0.18);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(ok ? 0.13 : 0.09, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (ok ? 0.22 : 0.24));
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t); osc.stop(t + 0.3);
+}
+function sparkleBurst(el){
+  if (!window.confetti || prefersReducedMotion) return;
+  const r = el.getBoundingClientRect();
+  confetti({ particleCount: 16, spread: 50, startVelocity: 18, gravity: 0.9, scalar: 0.6,
+    origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height/2) / window.innerHeight },
+    colors: ['#c9a35b', '#eef3f3', '#0f3d2e'] });
+}
 function initPotions(){
   $('#potionsIntro').textContent = C.potions.intro;
-  $('#recipeScroll').textContent = C.potions.recipe.join(' → ');
   $('#stirPrompt').textContent = C.potions.stirPrompt;
   $('#decorateTitle').textContent = C.potions.decorateTitle;
   $('#cakeNameInput').placeholder = C.potions.namePrompt;
@@ -532,17 +668,33 @@ function initPotions(){
   $('#cakeSavedMsg').textContent = C.potions.saved;
 
   const tray = $('#ingredientTray');
+  const progressEl = $('#potionsProgress');
+  const hintEl = $('#potionsHint');
   const items = C.potions.recipe.map(n => ({ name: n, decoy: false }))
     .concat(C.potions.decoys.map(d => ({ name: d.name, decoy: true, reply: d.reply })));
   items.sort(() => Math.random() - 0.5);
   let recipeIndex = 0;
   const cauldronEl = $('#cauldron');
 
+  C.potions.recipe.forEach(() => { const d = document.createElement('span'); d.className = 'dot'; progressEl.appendChild(d); });
+  function updateHint(){
+    [...progressEl.children].forEach((d, i) => d.classList.toggle('done', i < recipeIndex));
+    if (recipeIndex >= C.potions.recipe.length){
+      hintEl.textContent = '';
+      return;
+    }
+    hintEl.textContent = `Drag in: ${C.potions.recipe[recipeIndex]}`;
+    $all('.ingredient', tray).forEach(el => el.classList.toggle('next-needed', el.dataset.name === C.potions.recipe[recipeIndex] && !el.classList.contains('used')));
+  }
+
+  const elByItem = new Map();
   items.forEach(item => {
     const el = document.createElement('div');
     el.className = 'ingredient';
     el.textContent = item.name;
+    el.dataset.name = item.name;
     tray.appendChild(el);
+    elByItem.set(item, el);
     let ox=0, oy=0, dragging=false;
     el.addEventListener('pointerdown', e => {
       dragging = true; el.setPointerCapture(e.pointerId);
@@ -551,28 +703,38 @@ function initPotions(){
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      el.style.transform = `translate(${e.clientX-ox}px, ${e.clientY-oy}px)`;
+      el.style.transform = `translate(${e.clientX-ox}px, ${e.clientY-oy}px) scale(1.08)`;
+      const cr = cauldronEl.getBoundingClientRect();
+      const over = e.clientX >= cr.left-20 && e.clientX <= cr.right+20 && e.clientY >= cr.top-20 && e.clientY <= cr.bottom+20;
+      cauldronEl.classList.toggle('drag-over', over);
     });
     el.addEventListener('pointerup', e => {
       if (!dragging) return; dragging = false;
+      cauldronEl.classList.remove('drag-over');
       const cr = cauldronEl.getBoundingClientRect();
       const dropX = e.clientX, dropY = e.clientY;
       const over = dropX >= cr.left-20 && dropX <= cr.right+20 && dropY >= cr.top-20 && dropY <= cr.bottom+20;
       if (over){
         if (item.decoy){
-          toast(item.reply, 2600); vibrate(20);
+          toast(item.reply, 2600); vibrate(20); playBlip(false);
+          el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 400);
           el.style.transform = 'translate(0,0)';
         } else if (item.name === C.potions.recipe[recipeIndex]){
           recipeIndex++;
           el.classList.add('used');
           el.style.transform = 'translate(0,0)';
-          cauldronEl.animate([{ transform:'scale(1)' },{ transform:'scale(1.2)' },{ transform:'scale(1)' }], { duration: 300 });
+          cauldronEl.animate([{ transform:'scale(1)' },{ transform:'scale(1.25)' },{ transform:'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+          sparkleBurst(cauldronEl);
+          playBlip(true, recipeIndex);
           vibrate(15);
+          updateHint();
           if (recipeIndex === C.potions.recipe.length){
-            setTimeout(() => { $('#stirStage').hidden = false; setupStir(); }, 400);
+            hintEl.textContent = C.potions.recipeDone || 'Sab kuch andar hai. Ab stir karo.';
+            setTimeout(() => { $('#stirStage').hidden = false; setupStir(); }, 500);
           }
         } else {
-          toast("Abhi iska number nahi aaya.", 2200);
+          toast("Abhi iska number nahi aaya.", 2200); playBlip(false);
+          el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 400);
           el.style.transform = 'translate(0,0)';
         }
       } else {
@@ -580,10 +742,13 @@ function initPotions(){
       }
     });
   });
+  updateHint();
 }
 function setupStir(){
   const circle = $('#stirCircle');
-  let lastAngle = null, total = 0, done = false;
+  const ring = $('#stirRingProgress');
+  const RING_LEN = 264;
+  let lastAngle = null, total = 0, done = false, lastTick = 0;
   function angleAt(e){
     const r = circle.getBoundingClientRect();
     const cx = r.left + r.width/2, cy = r.top + r.height/2;
@@ -599,10 +764,17 @@ function setupStir(){
     total += Math.abs(delta);
     lastAngle = a;
     circle.style.transform = `rotate(${total}rad)`;
-    if (total / (2*Math.PI) >= 3 && !done){
+    const rotations = total / (2*Math.PI);
+    const frac = Math.min(1, rotations / 3);
+    ring.setAttribute('stroke-dashoffset', String(RING_LEN * (1 - frac)));
+    if (Math.floor(rotations) > lastTick){ lastTick = Math.floor(rotations); vibrate(10); }
+    if (rotations >= 3 && !done){
       done = true;
       toast(C.potions.stirDone, 2200);
-      setTimeout(() => { $('#decorateStage').hidden = false; setupDecorate(); }, 300);
+      sparkleBurst(circle);
+      playBlip(true, 3);
+      vibrate([15,20,15]);
+      setTimeout(() => { $('#decorateStage').hidden = false; setupDecorate(); }, 400);
     }
   });
   circle.addEventListener('pointerup', () => { lastAngle = null; });
@@ -617,16 +789,18 @@ function setupDecorate(){
       b.textContent = v;
       if (!multi && v === (id === 'flavourRow' ? state.flavour : state.icing)) b.classList.add('selected');
       b.addEventListener('click', () => {
+        bounceEl(b);
         if (multi){
           const idx = state.toppings.indexOf(v);
           if (idx >= 0){ state.toppings.splice(idx,1); b.classList.remove('selected'); }
           else if (state.toppings.length < 3){ state.toppings.push(v); b.classList.add('selected'); }
+          else { toast('Teen se zyada nahi. Cake hai, Christmas tree nahi.', 1800); return; }
         } else {
           [...rowEl.children].forEach(c => c.classList.remove('selected'));
           b.classList.add('selected');
           if (id === 'flavourRow') state.flavour = v; else state.icing = v;
         }
-        updatePreview();
+        updatePreview(true);
       });
       rowEl.appendChild(b);
     });
@@ -636,9 +810,12 @@ function setupDecorate(){
   row('toppingRow', C.potions.toppings, true);
   const nameInput = $('#cakeNameInput');
   nameInput.addEventListener('input', () => { state.name = nameInput.value; updatePreview(); });
-  function updatePreview(){
-    const toppingIcons = state.toppings.map(t => ({'Sprinkles':'✨','Stars':'⭐','A tiny falcon':'🦅','Books':'📖','A snake':'🐍'}[t] || '')).join(' ');
-    $('#cakePreview').innerHTML = `🎂 <span style="font-size:1rem">${state.flavour} · ${state.icing}</span><br>${toppingIcons}${state.name ? '<br><span style="font-family:var(--font-hand)">' + state.name + '</span>' : ''}`;
+  const previewEl = $('#cakePreview');
+  function updatePreview(pulse){
+    previewEl.innerHTML = cakeSVG(state, { candleCount: 6 });
+    if (pulse && !prefersReducedMotion){
+      previewEl.animate([{ transform: 'scale(0.94)' },{ transform: 'scale(1.03)' },{ transform: 'scale(1)' }], { duration: 380, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    }
   }
   updatePreview();
   const existing = lsGet('palak26_cake', null);
@@ -652,8 +829,17 @@ function setupDecorate(){
     lsSet('palak26_cake', state);
     $('#cakeSavedMsg').hidden = false;
     vibrate([20,30,20]);
+    if (window.confetti && !prefersReducedMotion){
+      const r = previewEl.getBoundingClientRect();
+      confetti({ particleCount: 46, spread: 65, startVelocity: 28, origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height*0.3) / window.innerHeight }, colors: ['#0f3d2e','#c9a35b','#eef3f3'] });
+    }
+    previewEl.animate([{ transform: 'scale(1)' },{ transform: 'scale(1.08)' },{ transform: 'scale(1)' }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' });
     track('game_complete', { game: 'potions', flavour: state.flavour, icing: state.icing });
   });
+}
+function bounceEl(el){
+  if (prefersReducedMotion) return;
+  el.animate([{ transform: 'scale(0.9)' },{ transform: 'scale(1)' }], { duration: 220, easing: 'cubic-bezier(.34,1.56,.64,1)' });
 }
 
 /* ---------- Falcon Flight ---------- */
@@ -695,12 +881,17 @@ function startFalconGame(){
   const s = falconState;
   s.falcon = { x: s.w/2, y: s.h - 60 };
   s.items = [];
+  s.popups = [];
+  s.sparks = [];
+  s.shake = 0;
   s.lives = 3;
   s.score = 0;
   s.best = lsGet('palak26_falconBest', 0);
   s.spawnTimer = 0;
   s.elapsed = 0;
   s.running = true;
+  s.countdown = prefersReducedMotion ? 0 : 3;
+  s.countdownAt = performance.now();
   s.setTarget(null);
   updateFalconHud();
   $('#falconBest').textContent = C.falconFlight.highScore + ': ' + s.best;
@@ -727,9 +918,13 @@ function falconLoop(now){
   if (!s.running) return;
   const dt = Math.min(0.05, (now - s.last) / 1000);
   s.last = now;
-  s.elapsed += dt;
   const ctx = s.ctx, w = s.w, h = s.h;
-  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  if (s.shake > 0){
+    s.shake -= dt * 40;
+    ctx.translate((Math.random()-0.5) * s.shake, (Math.random()-0.5) * s.shake);
+  }
+  ctx.clearRect(-20,-20,w+40,h+40);
 
   const target = s.getTarget();
   if (target){
@@ -738,6 +933,18 @@ function falconLoop(now){
   }
   s.falcon.x = Math.max(20, Math.min(w-20, s.falcon.x));
   s.falcon.y = Math.max(20, Math.min(h-20, s.falcon.y));
+
+  if (s.countdown > 0){
+    if (now - s.countdownAt > 650){ s.countdown--; s.countdownAt = now; }
+    ctx.font = '30px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🦅', s.falcon.x, s.falcon.y);
+    ctx.font = 'bold 64px sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(s.countdown > 0 ? String(s.countdown) : 'Go!', w/2, h/2);
+    ctx.restore();
+    s.raf = requestAnimationFrame(falconLoop);
+    return;
+  }
+  s.elapsed += dt;
 
   const speed = 90 + Math.min(140, s.elapsed * 6);
   const spawnEvery = Math.max(0.5, 1.1 - s.elapsed * 0.01);
@@ -750,7 +957,18 @@ function falconLoop(now){
     s.items.push({ x: 20 + Math.random()*(w-40), y: -20, bad, rare, label, r: 16 });
   }
   ctx.font = '30px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  s.items.forEach(it => { it.y += speed*dt; ctx.fillText(it.label, it.x, it.y); });
+  s.items.forEach(it => { it.y += speed*dt; it.wob = (it.wob||0) + dt*3; ctx.fillText(it.label, it.x + Math.sin(it.wob)*4, it.y); });
+
+  s.sparks.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 1; });
+  s.sparks = s.sparks.filter(p => p.life > 0);
+  s.sparks.forEach(p => { ctx.globalAlpha = Math.max(0, p.life/24); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 2.4, 0, Math.PI*2); ctx.fill(); });
+  ctx.globalAlpha = 1;
+
+  s.popups.forEach(p => { p.y -= 0.7; p.life -= 1; });
+  s.popups = s.popups.filter(p => p.life > 0);
+  ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+  s.popups.forEach(p => { ctx.globalAlpha = Math.max(0, p.life/40); ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); });
+  ctx.globalAlpha = 1;
 
   for (let i = s.items.length-1; i >= 0; i--){
     const it = s.items[i];
@@ -759,18 +977,26 @@ function falconLoop(now){
     if (d < it.r + 20){
       s.items.splice(i,1);
       if (it.bad){
-        s.lives--; vibrate(60);
-        ctx.fillStyle = 'rgba(200,40,40,0.25)'; ctx.fillRect(0,0,w,h);
+        s.lives--; vibrate(60); s.shake = 12; playBlip(false);
+        ctx.fillStyle = 'rgba(200,40,40,0.25)'; ctx.fillRect(-20,-20,w+40,h+40);
+        s.popups.push({ x: it.x, y: it.y, text: 'oops', color: '#ff8080', life: 40 });
       } else {
-        s.score += it.rare ? 50 : (it.label==='📖'?15: it.label==='☕'?5:10);
-        vibrate(12);
+        const pts = it.rare ? 50 : (it.label==='📖'?15: it.label==='☕'?5:10);
+        s.score += pts;
+        vibrate(12); playBlip(true, pts/10);
+        s.popups.push({ x: it.x, y: it.y, text: '+' + pts, color: '#ffe9a8', life: 40 });
+        for (let k = 0; k < 8; k++){
+          const a = Math.random()*Math.PI*2, sp = 1 + Math.random()*2;
+          s.sparks.push({ x: it.x, y: it.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, life: 20+Math.random()*10, color: it.rare ? '#c9a35b' : '#eef3f3' });
+        }
       }
       updateFalconHud();
-      if (s.lives <= 0){ endFalconGame(); return; }
+      if (s.lives <= 0){ ctx.restore(); endFalconGame(); return; }
     }
   }
 
   ctx.font = '32px sans-serif'; ctx.fillText('🦅', s.falcon.x, s.falcon.y);
+  ctx.restore();
   s.raf = requestAnimationFrame(falconLoop);
 }
 function endFalconGame(){
@@ -787,8 +1013,12 @@ function initGuessStory(){
   $('#guessIntro').textContent = C.guessStory.intro;
   $('#guessOutro').textContent = C.guessStory.outro;
   const wrap = $('#guessWrap');
+  const progress = document.createElement('div');
+  progress.className = 'potions-progress';
+  C.guessStory.questions.forEach(() => { const d = document.createElement('span'); d.className = 'dot'; progress.appendChild(d); });
+  wrap.appendChild(progress);
   let answered = 0;
-  C.guessStory.questions.forEach(q => {
+  C.guessStory.questions.forEach((q, qi) => {
     const box = document.createElement('div');
     box.className = 'guess-q';
     box.innerHTML = `<p class="guess-summary">${q.summary}</p>`;
@@ -799,9 +1029,14 @@ function initGuessStory(){
       b.textContent = opt;
       b.addEventListener('click', () => {
         if (b.dataset.done) return;
+        const correct = oi === q.answer;
         [...box.querySelectorAll('.guess-option')].forEach(o => o.dataset.done = '1');
-        b.classList.add(oi === q.answer ? 'right' : 'wrong');
+        b.classList.add(correct ? 'right' : 'wrong');
+        bounceEl(b);
         reply.textContent = q.reply;
+        playBlip(correct, qi % 8);
+        if (correct){ sparkleBurst(b); vibrate(12); } else { b.classList.add('shake'); setTimeout(()=>b.classList.remove('shake'),400); vibrate(30); }
+        progress.children[qi].classList.add('done');
         answered++;
         if (answered === C.guessStory.questions.length){ $('#guessOutro').hidden = false; track('game_complete', { game: 'guess_story' }); }
       });
@@ -862,6 +1097,22 @@ function buildPensieve(){
    QUIET ROOM
    ============================================================ */
 let ambientNodes = {};
+const quietRoomState = { breathing: false };
+function stopAllAmbient(){
+  const t = audioCtx ? audioCtx.currentTime : 0;
+  Object.keys(ambientNodes).forEach(key => {
+    const node = ambientNodes[key];
+    try{
+      node.gain.gain.cancelScheduledValues(t);
+      node.gain.gain.setValueAtTime(node.gain.gain.value, t);
+      node.gain.gain.linearRampToValueAtTime(0.0001, t + 0.35);
+      setTimeout(() => { try{ node.noise.stop(); node.noise.disconnect(); node.filter.disconnect(); node.gain.disconnect(); }catch(e){} }, 400);
+    }catch(e){}
+    delete ambientNodes[key];
+  });
+  quietRoomState.breathing = false;
+  $all('#quietSounds input').forEach(inp => { inp.value = 0; });
+}
 function initQuiet(){
   $('#quietIntro').textContent = C.quietRoom.intro;
   $('#quietLine').textContent = C.quietRoom.line;
@@ -877,21 +1128,20 @@ function initQuiet(){
     slider.addEventListener('input', () => setAmbientVolume(s.key, slider.value/100));
   });
 
-  let breathing = false;
   const lantern = $('#breathingLantern');
   const word = $('#breatheWord');
   function breatheCycle(){
-    if (!breathing) return;
+    if (!quietRoomState.breathing) return;
     lantern.classList.add('expand'); word.textContent = C.quietRoom.breatheIn;
     setTimeout(() => {
-      if (!breathing) return;
+      if (!quietRoomState.breathing) return;
       lantern.classList.remove('expand'); word.textContent = C.quietRoom.breatheOut;
       setTimeout(breatheCycle, prefersReducedMotion ? 500 : 4000);
     }, prefersReducedMotion ? 500 : 4000);
   }
   lantern.addEventListener('click', () => {
-    breathing = !breathing;
-    if (breathing) breatheCycle(); else word.textContent = '';
+    quietRoomState.breathing = !quietRoomState.breathing;
+    if (quietRoomState.breathing) breatheCycle(); else word.textContent = '';
   });
 
   // easter egg: long-press falcon
@@ -1038,16 +1288,10 @@ function initFinale(){
   $('#readAgainBtn').textContent = C.finale.readAgain;
   $('#backQuietBtn').textContent = C.finale.backToQuiet;
 
-  const cake = lsGet('palak26_cake', null);
-  const flavour = cake ? cake.flavour : C.meta.defaultCake;
-  const icing = cake ? cake.icing : 'Emerald';
-  const name = cake && cake.name ? cake.name : 'Palak';
-  const toppingIconMap = {'Sprinkles':'✨','Stars':'⭐','A tiny falcon':'🦅','Books':'📖','A snake':'🐍'};
-  const toppingIcons = (cake && cake.toppings ? cake.toppings : []).map(t => toppingIconMap[t] || '').join(' ');
-  const candleCount = 8;
-  let candlesHtml = '';
-  for (let i = 0; i < candleCount; i++) candlesHtml += `<span class="candle" data-lit="0" style="font-size:1.1rem;opacity:0.4;transition:opacity .2s;">🕯️</span>`;
-  $('#finaleCake').innerHTML = `<div>🎂 <span style="font-size:1rem">${name}'s ${flavour} cake · ${icing}</span></div><div style="font-size:1.1rem">${toppingIcons}</div><div style="margin-top:6px">${candlesHtml}</div>`;
+  const cake = lsGet('palak26_cake', null) || { flavour: C.meta.defaultCake, icing: 'Emerald', toppings: [], name: 'Palak' };
+  if (!cake.name) cake.name = 'Palak';
+  $('#finaleCake').innerHTML = cakeSVG(cake, { candleCount: 8 })
+    + `<p class="finale-cake-label">${cake.name}'s ${cake.flavour} cake · ${cake.icing}</p>`;
 
   $('#lumosBtn').addEventListener('click', lightCandles);
   $('#blowBtn').addEventListener('click', blowOutCandles);
@@ -1055,7 +1299,10 @@ function initFinale(){
   const canvas = $('#fxCanvas');
   function resizeFx(){ const r = $('#page-finale').getBoundingClientRect(); canvas.width = r.width; canvas.height = r.height; }
   resizeFx(); window.addEventListener('resize', resizeFx);
-  document.addEventListener('visibilitychange', () => { fxState.running = !document.hidden && fxState.wantRunning; });
+  document.addEventListener('visibilitychange', () => {
+    fxState.running = !document.hidden && fxState.wantRunning;
+    if (document.hidden) stopFinaleMic();
+  });
 
   const wishesEl = $('#wishChips');
   C.finale.lanternWishes.forEach(w => {
@@ -1096,9 +1343,15 @@ function lightCandles(){
   });
   setTimeout(() => { $('#lumosBtn').hidden = true; $('#blowBtn').hidden = false; $('#micHint').hidden = false; tryMic(); }, cumulative + 350);
 }
+let activeMicStream = null;
+function stopFinaleMic(){
+  if (activeMicStream){ try{ activeMicStream.getTracks().forEach(t => t.stop()); }catch(e){} activeMicStream = null; }
+}
 function tryMic(){
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    if (pageOrder[currentIndex] !== 'finale'){ stream.getTracks().forEach(t => t.stop()); return; }
+    activeMicStream = stream;
     const ctx = ensureAudio(); if (!ctx) return;
     const src = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser(); analyser.fftSize = 512;
@@ -1106,12 +1359,16 @@ function tryMic(){
     const data = new Uint8Array(analyser.frequencyBinCount);
     let loud = 0, blown = false;
     function check(){
-      if (blown || $('#blowBtn').hidden) { stream.getTracks().forEach(t=>t.stop()); return; }
+      if (blown || $('#blowBtn').hidden || pageOrder[currentIndex] !== 'finale'){
+        stream.getTracks().forEach(t=>t.stop());
+        if (activeMicStream === stream) activeMicStream = null;
+        return;
+      }
       analyser.getByteTimeDomainData(data);
       let sum = 0; for (let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum += v*v; }
       const rms = Math.sqrt(sum/data.length);
       if (rms > 0.12) loud++; else loud = 0;
-      if (loud > 4){ blown = true; stream.getTracks().forEach(t=>t.stop()); blowOutCandles(); return; }
+      if (loud > 4){ blown = true; stream.getTracks().forEach(t=>t.stop()); activeMicStream = null; blowOutCandles(); return; }
       requestAnimationFrame(check);
     }
     check();
@@ -1275,5 +1532,18 @@ function playBirthdayTune(){
   });
 }
 
+/* ---------- ambient background depth ---------- */
+function initAmbientDust(){
+  if (prefersReducedMotion) return;
+  const layer = $('#ambientDust');
+  const n = 14;
+  for (let i = 0; i < n; i++){
+    const s = document.createElement('span');
+    const size = 2 + Math.random() * 3;
+    s.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${size}px; height:${size}px; animation-duration:${18+Math.random()*16}s; animation-delay:${-Math.random()*20}s;`;
+    layer.appendChild(s);
+  }
+}
+
 /* ============================================================ */
-document.addEventListener('DOMContentLoaded', initBook);
+document.addEventListener('DOMContentLoaded', () => { initBook(); initAmbientDust(); });
