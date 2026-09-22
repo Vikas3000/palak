@@ -383,6 +383,11 @@ function startMaze(){
     w.style.left = (pt.x/320*100) + '%';
     w.style.top = (pt.y/480*100) + '%';
     w.innerHTML = `<div class="face face-top"></div><div class="face face-front"></div>`;
+    const shadow = document.createElement('div');
+    shadow.className = 'maze-wall-shadow';
+    shadow.style.left = (pt.x/320*100) + '%';
+    shadow.style.top = (pt.y/480*100) + '%';
+    wallsEl.appendChild(shadow);
     wallsEl.appendChild(w);
   });
 
@@ -393,8 +398,20 @@ function startMaze(){
     const y = (t.clientY - r.top) * (480 / r.height);
     return { x, y };
   }
-  let tiltRaf = null;
+  let tiltRaf = null, trailCount = 0;
   function settleTilt(){ floor.style.transform = `rotateX(${BASE_TILT}deg)`; }
+  function spawnTrailDot(p){
+    if (prefersReducedMotion) return;
+    trailCount++;
+    if (trailCount % 2 !== 0) return;
+    const dot = document.createElement('div');
+    dot.className = 'maze-trail-dot';
+    dot.style.left = (p.x/320*100) + '%';
+    dot.style.top = (p.y/480*100) + '%';
+    $('#mazeWalls').appendChild(dot);
+    if (window.gsap) gsap.to(dot, { opacity: 0, scale: 0.3, duration: 0.5, onComplete: () => dot.remove() });
+    else setTimeout(() => dot.remove(), 500);
+  }
   function onStart(e){ dragging = true; const p = svgPoint(e); lastX = p.x; lastY = p.y; e.preventDefault(); }
   function onMove(e){
     if (!dragging || done) return;
@@ -402,6 +419,7 @@ function startMaze(){
     const dx = p.x - lastX, dy = p.y - lastY;
     traveled += Math.hypot(dx, dy);
     lastX = p.x; lastY = p.y;
+    spawnTrailDot(p);
     const frac = Math.min(1, traveled / requiredDistance);
     glowPath.setAttribute('stroke-dashoffset', String(len * (1 - frac)));
 
@@ -762,19 +780,48 @@ function initPotions(){
     el.dataset.name = item.name;
     tray.appendChild(el);
     elByItem.set(item, el);
-    let ox=0, oy=0, dragging=false;
+    let ox=0, oy=0, dragging=false, dx=0, dy=0, vx=0, vy=0, lastMoveT=0;
     el.addEventListener('pointerdown', e => {
       dragging = true; el.setPointerCapture(e.pointerId);
       el.style.position = 'relative'; el.style.zIndex = 20;
-      ox = e.clientX; oy = e.clientY;
+      ox = e.clientX; oy = e.clientY; lastMoveT = performance.now();
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      el.style.transform = `translate(${e.clientX-ox}px, ${e.clientY-oy}px) scale(1.08)`;
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveT); lastMoveT = now;
+      const ndx = e.clientX - ox, ndy = e.clientY - oy;
+      vx = (ndx - dx) / dt; vy = (ndy - dy) / dt;
+      dx = ndx; dy = ndy;
+      el.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.max(-14,Math.min(14,vx*40))}deg) scale(1.08)`;
       const cr = cauldronEl.getBoundingClientRect();
       const over = e.clientX >= cr.left-20 && e.clientX <= cr.right+20 && e.clientY >= cr.top-20 && e.clientY <= cr.bottom+20;
       cauldronEl.classList.toggle('drag-over', over);
     });
+    function settleBack(){
+      // gravity-style toss back to the tray: a little continued momentum, then arcs down and home
+      if (prefersReducedMotion){ el.style.transform = 'translate(0,0)'; return; }
+      const overX = dx + vx * 50, overY = dy + vy * 50 + 20;
+      const anim = el.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(1.08)` },
+        { transform: `translate(${overX}px, ${overY}px) rotate(${Math.max(-20,Math.min(20,vx*50))}deg) scale(1)`, offset: 0.35 },
+        { transform: 'translate(0,0) rotate(0deg) scale(1)' }
+      ], { duration: 480, easing: 'cubic-bezier(.34,1.15,.4,1)' });
+      anim.onfinish = () => { el.style.transform = 'translate(0,0)'; };
+    }
+    function dropIntoCauldron(){
+      // it doesn't snap back to the tray — it visibly falls into the bowl and stays there
+      if (prefersReducedMotion){ el.style.transform = 'translate(0,0)'; return; }
+      const cr = cauldronEl.getBoundingClientRect(), er = el.getBoundingClientRect();
+      const startCenterX = er.left + er.width/2, startCenterY = er.top + er.height/2;
+      const targetDx = dx + (cr.left + cr.width/2 - startCenterX);
+      const targetDy = dy + (cr.top + cr.height/2 - startCenterY) + 8;
+      const anim = el.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(1.08)` },
+        { transform: `translate(${targetDx}px, ${targetDy}px) rotate(${Math.max(-30,Math.min(30,vx*60))}deg) scale(0.3)`, opacity: 0.25 }
+      ], { duration: 380, easing: 'ease-in', fill: 'forwards' });
+      anim.onfinish = () => { el.style.transform = `translate(${targetDx}px, ${targetDy}px) scale(0.3)`; };
+    }
     el.addEventListener('pointerup', e => {
       if (!dragging) return; dragging = false;
       cauldronEl.classList.remove('drag-over');
@@ -784,12 +831,11 @@ function initPotions(){
       if (over){
         if (item.decoy){
           toast(item.reply, 2600); vibrate(20); playBlip(false);
-          el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 400);
-          el.style.transform = 'translate(0,0)';
+          settleBack();
         } else if (item.name === C.potions.recipe[recipeIndex]){
           recipeIndex++;
           el.classList.add('used');
-          el.style.transform = 'translate(0,0)';
+          dropIntoCauldron();
           updateBatter(recipeIndex, C.potions.recipe.length);
           sparkleBurst(cauldronEl);
           playBlip(true, recipeIndex);
@@ -801,11 +847,10 @@ function initPotions(){
           }
         } else {
           toast("Abhi iska number nahi aaya.", 2200); playBlip(false);
-          el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 400);
-          el.style.transform = 'translate(0,0)';
+          settleBack();
         }
       } else {
-        el.style.transform = 'translate(0,0)';
+        settleBack();
       }
     });
   });
@@ -1316,6 +1361,65 @@ function initQuiet(){
     tapTimer = setTimeout(()=> taps = 0, 1500);
     if (taps === 3){ toast(C.easterEggs.moon, 3800); track('easter_egg_found', { egg: 'moon' }); taps = 0; }
   });
+
+  // drag-to-tilt the whole room, like tilting a snow globe
+  const scene = $('#quietScene3d');
+  const layers = $('#quietLayers');
+  let tiltDragging = false, tsx = 0, tsy = 0;
+  scene.addEventListener('pointerdown', e => { tiltDragging = true; tsx = e.clientX; tsy = e.clientY; layers.style.transition = 'none'; });
+  scene.addEventListener('pointermove', e => {
+    if (!tiltDragging || prefersReducedMotion) return;
+    const dx = e.clientX - tsx, dy = e.clientY - tsy;
+    const ry = Math.max(-14, Math.min(14, dx * 0.12));
+    const rx = Math.max(-10, Math.min(10, -dy * 0.1));
+    layers.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+  });
+  function settleTilt(){
+    tiltDragging = false;
+    layers.style.transition = 'transform .5s cubic-bezier(.34,1.2,.4,1)';
+    layers.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  }
+  scene.addEventListener('pointerup', settleTilt);
+  scene.addEventListener('pointerleave', settleTilt);
+
+  // fog-wipe window: unique to this chapter — wipe the condensation to see out
+  const fog = $('#fogCanvas');
+  const windowEl = $('.quiet-window');
+  function sizeFog(){ const r = windowEl.getBoundingClientRect(); fog.width = r.width; fog.height = r.height; }
+  sizeFog();
+  const fctx = fog.getContext('2d');
+  fctx.fillStyle = 'rgba(210,220,225,0.55)';
+  fctx.fillRect(0, 0, fog.width, fog.height);
+  let wiping = false, fogLastPt = null, fogRevealed = false, fogSample = 0;
+  function fogPoint(e){ const r = fog.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  fog.addEventListener('pointerdown', e => {
+    wiping = true; fogLastPt = fogPoint(e);
+    fog.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+  fog.addEventListener('pointermove', e => {
+    if (!wiping) return;
+    const p = fogPoint(e);
+    fctx.globalCompositeOperation = 'destination-out';
+    fctx.lineWidth = 22; fctx.lineCap = 'round'; fctx.lineJoin = 'round';
+    fctx.beginPath(); fctx.moveTo(fogLastPt.x, fogLastPt.y); fctx.lineTo(p.x, p.y); fctx.stroke();
+    fogLastPt = p;
+    fogSample++;
+    if (!fogRevealed && fogSample % 8 === 0){
+      const data = fctx.getImageData(0, 0, fog.width, fog.height).data;
+      let clear = 0, total = 0;
+      for (let i = 3; i < data.length; i += 4*23){ total++; if (data[i] < 40) clear++; }
+      if (total && clear/total > 0.4){
+        fogRevealed = true;
+        toast(C.easterEggs.fog, 3800);
+        track('easter_egg_found', { egg: 'fog' });
+      }
+    }
+    e.stopPropagation();
+  });
+  function endWipe(){ wiping = false; }
+  fog.addEventListener('pointerup', endWipe);
+  fog.addEventListener('pointerleave', endWipe);
 }
 function setAmbientVolume(key, vol){
   ensureAudio();

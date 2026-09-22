@@ -73,11 +73,26 @@ function fmtDuration(ms){
 function deviceLabel(ua){
   if (!ua) return 'Unknown device';
   if (/iPhone/.test(ua)) return 'iPhone';
-  if (/Android/.test(ua)) return 'Android';
+  if (/Android/.test(ua)){
+    // Android UAs often carry the model right before "Build/", e.g. "...; SM-G991B Build/..."
+    const m = ua.match(/;\s*([A-Za-z0-9_\-\s]+?)\s*Build\//);
+    return m ? `Android (${m[1].trim()})` : 'Android';
+  }
   if (/iPad/.test(ua)) return 'iPad';
   if (/Windows/.test(ua)) return 'Windows';
   if (/Macintosh/.test(ua)) return 'Mac';
   return 'Unknown device';
+}
+function browserLabel(ua){
+  if (!ua) return '';
+  if (/FBAN|FBAV/.test(ua)) return 'Facebook in-app';
+  if (/Instagram/.test(ua)) return 'Instagram in-app';
+  if (/WhatsApp/.test(ua)) return 'WhatsApp in-app';
+  if (/EdgA|Edge/.test(ua)) return 'Edge';
+  if (/CriOS|Chrome/.test(ua)) return 'Chrome';
+  if (/FxiOS|Firefox/.test(ua)) return 'Firefox';
+  if (/Version\/.*Safari/.test(ua)) return 'Safari';
+  return '';
 }
 
 async function loadData(){
@@ -140,6 +155,7 @@ function render(sessions){
   $('#statLastVisit').textContent = sessions[0] ? fmtDate(sessions[0].startedAt) : '—';
 
   renderChart(sessions);
+  renderDeviceStats(sessions);
   renderGameStats(gameStats);
   renderLetterStats(openedLetterIdx);
   renderSessionList(sessions);
@@ -168,6 +184,21 @@ function renderChart(sessions){
   });
 }
 
+function renderDeviceStats(sessions){
+  const counts = {};
+  sessions.forEach(s => {
+    const label = deviceLabel(s.userAgent);
+    const browser = browserLabel(s.userAgent);
+    const key = `${label}${s.screen ? ' · ' + s.screen : ''}${browser ? ' · ' + browser : ''}`;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  const el = $('#deviceStats');
+  if (!entries.length){ el.innerHTML = '<div class="mini-card">No visits yet</div>'; return; }
+  el.innerHTML = entries.map(([key, count]) =>
+    `<div class="mini-card"><div class="n">${count}</div>${key} visit${count===1?'':'s'}</div>`
+  ).join('');
+}
 function renderGameStats(gameStats){
   const names = { potions: 'Potions Class', falcon: 'Falcon Flight', guess_story: 'Guess the Story' };
   const el = $('#gameStats');

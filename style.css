@@ -287,6 +287,8 @@ button{
 .maze-wall .face{ position: absolute; inset:0; }
 .maze-wall .face-top{ background: linear-gradient(135deg, #b99a5e, #8c7440); transform: translateZ(22px); box-shadow: 0 4px 8px rgba(0,0,0,0.35); border-radius: 3px; }
 .maze-wall .face-front{ background: linear-gradient(180deg, #6b5230, #4a3820); height: 22px; top: auto; bottom: -22px; transform: rotateX(-90deg); transform-origin: top; }
+.maze-wall-shadow{ position:absolute; width: 34px; height: 14px; margin-left:-4px; margin-top:8px; border-radius:50%; background: radial-gradient(ellipse, rgba(0,0,0,0.4), transparent 72%); transform: translateZ(-1px); }
+.maze-trail-dot{ position:absolute; width:6px; height:6px; border-radius:50%; background: radial-gradient(circle, #fff3c4, #c9a35b); pointer-events:none; z-index:5; box-shadow: 0 0 6px #c9a35b; }
 .maze-flag{ position:absolute; width:4px; height:34px; transform-style:preserve-3d; }
 .maze-flag .pole{ position:absolute; width:3px; height:34px; background:#8c7440; left:0; bottom:0; transform: translateZ(1px); }
 .maze-flag .banner{ position:absolute; width:20px; height:14px; background: linear-gradient(135deg,#c9a35b,#0f3d2e); top:0; left:3px; clip-path: polygon(0 0,100% 20%,0 100%); transform: translateZ(2px); }
