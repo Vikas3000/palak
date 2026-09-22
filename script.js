@@ -76,10 +76,15 @@ function initBook(){
   $('#prevBtn').addEventListener('click', goPrev);
   $all('[data-next]').forEach(btn => btn.addEventListener('click', goNext));
 
-  let sx = 0, sy = 0;
+  let sx = 0, sy = 0, swipeBlocked = false;
   const book = $('#book');
-  book.addEventListener('touchstart', e => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+  book.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY;
+    // don't hijack swipes inside elements that scroll horizontally themselves
+    swipeBlocked = !!e.target.closest('.polaroid-strip, .falcon-canvas, .cake-orbit-stage, .stir-circle');
+  }, { passive: true });
   book.addEventListener('touchend', e => {
+    if (swipeBlocked) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - sx, dy = t.clientY - sy;
     if (Math.abs(dx) > 60 && Math.abs(dy) < 70){ if (dx < 0) goNext(); else goPrev(); }
@@ -1491,7 +1496,8 @@ function initHug(){
   const seal = $('#hugSeal');
   let holdTimer = null, beatIv = null, revealed = lsGet('palak26_hugDone', false);
   if (revealed){ $('#hugLine').hidden = false; $('#hugNextBtn').hidden = false; }
-  function startHold(){
+  function startHold(e){
+    try{ seal.setPointerCapture(e.pointerId); }catch(err){}
     seal.classList.add('holding');
     beatIv = setInterval(() => vibrate([40,120]), 500);
     holdTimer = setTimeout(() => {
@@ -1507,7 +1513,7 @@ function initHug(){
   function endHold(){ seal.classList.remove('holding'); clearTimeout(holdTimer); clearInterval(beatIv); }
   seal.addEventListener('pointerdown', startHold);
   seal.addEventListener('pointerup', endHold);
-  seal.addEventListener('pointerleave', endHold);
+  seal.addEventListener('pointercancel', endHold);
 }
 
 /* ============================================================
