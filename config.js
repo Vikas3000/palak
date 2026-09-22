@@ -436,7 +436,7 @@ Happy 26th birthday, Ma'am.
     lanternWishes: ["Peace", "Good health", "Selection", "Home-cooked biryani", "Never getting lost again"],
     finalText: [
       "Happy 26th, Palak.",
-      "Jitni bhi baar lost ho jao, ye kitaab hamesha tumhara raasta yaad rakhegi.",
+      "Falcon apna raasta khud banata hai. Tum bhi bana rahi ho, aur main dekh raha hoon.",
       "Chapter 26: To be continued. Milte hain jaldi."
     ],
     closingLine: "Introvert-friendly party. Guest list: 1 (you). Noise: minimal. Love: maximum. Mischief managed.",
