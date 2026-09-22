@@ -92,7 +92,12 @@
     <p class="chapter-intro" id="mazeIntro"></p>
     <button class="btn-primary" id="oathBtn"></button>
     <div id="mazeGame" class="maze-game" hidden>
-      <svg id="mazeSvg" viewBox="0 0 320 480" class="maze-svg"></svg>
+      <div class="maze-3d-stage" id="maze3dStage">
+        <div class="maze-floor" id="mazeFloor">
+          <svg id="mazeSvg" viewBox="0 0 320 480" class="maze-svg"></svg>
+          <div id="mazeWalls" class="maze-walls"></div>
+        </div>
+      </div>
       <p class="maze-result" id="mazeResult" hidden></p>
       <button class="btn-primary next-btn" data-next id="mazeNextBtn" hidden>Next page →</button>
     </div>
@@ -153,11 +158,20 @@
 
   <!-- ============ QUIET ROOM ============ -->
   <section class="page" data-page="quiet" id="page-quiet">
-    <div class="quiet-scene">
-      <div class="quiet-window"><div class="rain"></div></div>
-      <div class="quiet-fire">🔥</div>
-      <div class="quiet-falcon">🦅</div>
+    <div class="quiet-scene-3d" id="quietScene3d">
+      <div class="quiet-layers" id="quietLayers">
+        <div class="q-wall"></div>
+        <div class="q-shelf">📚 📖 📚</div>
+        <div class="quiet-window">
+          <div class="rain rain-far"></div>
+          <div class="rain rain-near"></div>
+          <canvas class="fog-canvas" id="fogCanvas"></canvas>
+        </div>
+        <div class="quiet-fire">🔥</div>
+        <div class="quiet-falcon">🦅</div>
+      </div>
     </div>
+    <p class="scene-hint">Wipe the fogged window. Tilt the room by dragging.</p>
     <p class="chapter-intro" id="quietIntro"></p>
     <div class="quiet-sounds" id="quietSounds"></div>
     <div class="lantern-wrap">
@@ -198,12 +212,14 @@
 
   <!-- ============ GRAND FINALE ============ -->
   <section class="page" data-page="finale" id="page-finale">
+    <canvas id="starCanvas" class="star-canvas"></canvas>
     <canvas id="fxCanvas" class="fx-canvas"></canvas>
     <div class="finale-stage" id="finaleStage">
       <div class="finale-sky" id="finaleSky"></div>
       <div class="finale-cake" id="finaleCake"></div>
       <button class="btn-primary" id="lumosBtn"></button>
       <button class="btn-primary" id="blowBtn" hidden></button>
+      <div class="breath-meter" id="breathMeter" hidden><div class="breath-fill" id="breathFill"></div></div>
       <p class="mic-hint" id="micHint" hidden></p>
       <div class="finale-text" id="finaleSkyText" hidden></div>
       <div class="lantern-release" id="lanternRelease" hidden>
@@ -240,7 +256,14 @@
     <div class="potions-progress" id="potionsProgress"></div>
     <p class="potions-hint" id="potionsHint"></p>
     <div class="potions-stage">
-      <div class="cauldron" id="cauldron">🍯</div>
+      <div class="bowl-3d-scene" id="bowlScene">
+        <div class="bowl-3d" id="cauldron">
+          <div class="bowl-rim"></div>
+          <div class="bowl-batter" id="bowlBatter"></div>
+          <div class="bowl-wall"></div>
+        </div>
+        <div class="bowl-shadow"></div>
+      </div>
     </div>
     <div class="ingredient-tray" id="ingredientTray"></div>
     <div id="stirStage" class="stir-stage" hidden>
@@ -253,7 +276,14 @@
     </div>
     <div id="decorateStage" class="decorate-stage" hidden>
       <p id="decorateTitle"></p>
-      <div class="cake-preview" id="cakePreview"></div>
+      <p class="orbit-hint">Drag the cake itself to drizzle icing. Drag beside it to spin and inspect.</p>
+      <div class="cake-orbit-stage" id="cakeOrbitStage">
+        <div class="cake-orbit" id="cakeOrbit">
+          <div class="cake-preview" id="cakePreview"></div>
+          <canvas class="icing-trail-canvas" id="icingTrailCanvas"></canvas>
+        </div>
+        <div class="cake-orbit-shadow" id="cakeOrbitShadow"></div>
+      </div>
       <div class="decorate-row" id="flavourRow"></div>
       <div class="decorate-row" id="icingRow"></div>
       <div class="decorate-row" id="toppingRow"></div>
@@ -289,6 +319,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="config.js"></script>
 <script src="script.js" defer></script>
 <script type="module" src="analytics.js"></script>

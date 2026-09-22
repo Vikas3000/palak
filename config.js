@@ -449,5 +449,6 @@ Happy 26th birthday, Ma'am.
     feather: "Ek pankh, ek pal. Ma'am, tumhe kabhi bataya nahi ki kitna proud feel hota hoon.",
     moon: "Teen baar chaand ko chhu liya. Kuch cheezein sirf akele mein mehsoos ki jaati hain.",
     polaroidBack: "Ye photo mere phone mein sabse zyada dekhi gayi hai. Tumhe pata bhi nahi tha.",
+    fog: "Window saaf kar diya. Bahar kuch nahi hai, bas raat hai. Kabhi kabhi itna hi kaafi hota hai.",
   },
 };

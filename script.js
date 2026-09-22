@@ -104,12 +104,19 @@ function goPrev(){ if (!pageTransitioning && currentIndex > 0) showPage(currentI
 
 const PAGE_EXIT_HOOKS = {
   quiet: () => { try{ stopAllAmbient(); }catch(e){} },
-  finale: () => { try{ stopFinaleMic(); }catch(e){} },
+  finale: () => { try{
+    stopFinaleMic(); pauseStarfield();
+    if (window.gsap) $all('#finaleCake .candle').forEach(c => gsap.killTweensOf(c));
+  }catch(e){} },
+};
+const PAGE_ENTER_HOOKS = {
+  finale: () => { try{ resumeStarfield(); }catch(e){} },
 };
 function showPage(idx){
   if (idx === currentIndex || pageTransitioning) return;
   const leavingId = pageOrder[currentIndex];
   if (PAGE_EXIT_HOOKS[leavingId]) PAGE_EXIT_HOOKS[leavingId]();
+  if (PAGE_ENTER_HOOKS[pageOrder[idx]]) PAGE_ENTER_HOOKS[pageOrder[idx]]();
   pageTransitioning = true;
   const forward = idx > currentIndex;
   const oldEl = pages[pageOrder[currentIndex]];
@@ -325,6 +332,16 @@ function initMaze(){
 function startMaze(){
   const svg = $('#mazeSvg');
   const NS = 'http://www.w3.org/2000/svg';
+  const floor = $('#mazeFloor');
+  const BASE_TILT = prefersReducedMotion ? 20 : 38;
+
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML = `<filter id="mazeGlowFilter" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="3.2" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>`;
+  svg.appendChild(defs);
+
   const path = document.createElementNS(NS, 'path');
   const d = 'M40,430 C160,470 300,420 280,340 C260,260 60,280 80,200 C100,120 300,140 260,60 C230,15 130,10 95,60 C70,100 95,180 95,220';
   path.setAttribute('d', d);
@@ -335,6 +352,15 @@ function startMaze(){
   path.setAttribute('opacity', '0.5');
   svg.appendChild(path);
 
+  const glowPath = document.createElementNS(NS, 'path');
+  glowPath.setAttribute('d', d);
+  glowPath.setAttribute('fill', 'none');
+  glowPath.setAttribute('stroke', '#c9a35b');
+  glowPath.setAttribute('stroke-width', '4');
+  glowPath.setAttribute('stroke-linecap', 'round');
+  glowPath.setAttribute('filter', 'url(#mazeGlowFilter)');
+  svg.appendChild(glowPath);
+
   const startMark = document.createElementNS(NS,'text');
   startMark.setAttribute('x', '20'); startMark.setAttribute('y', '460'); startMark.setAttribute('font-size','26');
   startMark.textContent = '🚏'; svg.appendChild(startMark);
@@ -343,11 +369,22 @@ function startMaze(){
   homeMark.textContent = '🏠'; svg.appendChild(homeMark);
 
   const len = path.getTotalLength();
+  glowPath.setAttribute('stroke-dasharray', String(len));
+  glowPath.setAttribute('stroke-dashoffset', String(len));
   const requiredDistance = len * 3.2;
   let traveled = 0, lastX = null, lastY = null, dragging = false, done = false;
-  const footHolder = document.createElementNS(NS,'g');
-  svg.appendChild(footHolder);
-  let footCount = 0;
+
+  // a few 3D wall blocks along the route, for real geometry, not decoration
+  const wallsEl = $('#mazeWalls');
+  [0.12, 0.32, 0.5, 0.66, 0.84].forEach(frac => {
+    const pt = path.getPointAtLength(frac * len);
+    const w = document.createElement('div');
+    w.className = 'maze-wall';
+    w.style.left = (pt.x/320*100) + '%';
+    w.style.top = (pt.y/480*100) + '%';
+    w.innerHTML = `<div class="face face-top"></div><div class="face face-front"></div>`;
+    wallsEl.appendChild(w);
+  });
 
   function svgPoint(e){
     const r = svg.getBoundingClientRect();
@@ -356,15 +393,8 @@ function startMaze(){
     const y = (t.clientY - r.top) * (480 / r.height);
     return { x, y };
   }
-  function placeFoot(frac){
-    const pt = path.getPointAtLength(frac * len);
-    footCount++;
-    if (footCount % 3 !== 0) return;
-    const f = document.createElementNS(NS, 'text');
-    f.setAttribute('x', pt.x - 8); f.setAttribute('y', pt.y + 4); f.setAttribute('font-size', '14');
-    f.textContent = '👣';
-    footHolder.appendChild(f);
-  }
+  let tiltRaf = null;
+  function settleTilt(){ floor.style.transform = `rotateX(${BASE_TILT}deg)`; }
   function onStart(e){ dragging = true; const p = svgPoint(e); lastX = p.x; lastY = p.y; e.preventDefault(); }
   function onMove(e){
     if (!dragging || done) return;
@@ -373,7 +403,15 @@ function startMaze(){
     traveled += Math.hypot(dx, dy);
     lastX = p.x; lastY = p.y;
     const frac = Math.min(1, traveled / requiredDistance);
-    placeFoot(frac);
+    glowPath.setAttribute('stroke-dashoffset', String(len * (1 - frac)));
+
+    // camera-follow: a small dolly tilt in the direction of travel
+    if (!prefersReducedMotion){
+      const tiltX = BASE_TILT + Math.max(-8, Math.min(8, dy * 1.4));
+      const tiltY = Math.max(-8, Math.min(8, dx * 1.4));
+      floor.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+      clearTimeout(tiltRaf); tiltRaf = setTimeout(settleTilt, 220);
+    }
     if (frac >= 1 && !done){
       done = true;
       $('#mazeResult').textContent = C.maze.result;
@@ -381,10 +419,25 @@ function startMaze(){
       $('#mazeNextBtn').hidden = false;
       vibrate([20,30,20,30,20]);
       track('maze_complete');
+      arriveAtHome();
     }
     e.preventDefault();
   }
-  function onEnd(){ dragging = false; }
+  function arriveAtHome(){
+    const flag = document.createElement('div');
+    flag.className = 'maze-flag';
+    flag.style.left = (75/320*100) + '%';
+    flag.style.top = (218/480*100) + '%';
+    flag.innerHTML = `<div class="pole"></div><div class="banner"></div>`;
+    wallsEl.appendChild(flag);
+    settleTilt();
+    if (window.gsap && !prefersReducedMotion){
+      gsap.fromTo(flag, { scale: 0, y: 20 }, { scale: 1, y: 0, duration: 0.6, ease: 'back.out(3)' });
+      gsap.fromTo('#maze3dStage', { scale: 1 }, { scale: 1.06, duration: 0.35, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+    }
+    sparkleBurst(svg);
+  }
+  function onEnd(){ dragging = false; if (!done) settleTilt(); }
   svg.addEventListener('pointerdown', onStart);
   svg.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onEnd);
@@ -675,6 +728,20 @@ function initPotions(){
   items.sort(() => Math.random() - 0.5);
   let recipeIndex = 0;
   const cauldronEl = $('#cauldron');
+  const batterEl = $('#bowlBatter');
+  const BATTER_STEPS = ['#f7f0da','#f5ecc9','#f0d98f','#e3bd66','#8a5a36','#6e4426'];
+  batterEl.style.background = BATTER_STEPS[0];
+  function updateBatter(step, total){
+    const frac = step / total;
+    batterEl.style.transform = `translateZ(${(frac*20).toFixed(1)}px) scale(${(0.14 + frac*0.86).toFixed(2)})`;
+    batterEl.style.background = BATTER_STEPS[Math.min(step, BATTER_STEPS.length) - 1] || BATTER_STEPS[0];
+    if (window.gsap) gsap.fromTo(batterEl, { filter: 'brightness(1.6)' }, { filter: 'brightness(1)', duration: 0.4 });
+    const poof = document.createElement('div');
+    poof.className = 'bowl-poof'; poof.textContent = '✨';
+    $('#bowlScene').appendChild(poof);
+    if (window.gsap) gsap.fromTo(poof, { opacity:1, y:0, scale:0.6 }, { opacity:0, y:-24, scale:1.3, duration:0.6, ease:'power1.out', onComplete:()=>poof.remove() });
+    else setTimeout(() => poof.remove(), 600);
+  }
 
   C.potions.recipe.forEach(() => { const d = document.createElement('span'); d.className = 'dot'; progressEl.appendChild(d); });
   function updateHint(){
@@ -723,7 +790,7 @@ function initPotions(){
           recipeIndex++;
           el.classList.add('used');
           el.style.transform = 'translate(0,0)';
-          cauldronEl.animate([{ transform:'scale(1)' },{ transform:'scale(1.25)' },{ transform:'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+          updateBatter(recipeIndex, C.potions.recipe.length);
           sparkleBurst(cauldronEl);
           playBlip(true, recipeIndex);
           vibrate(15);
@@ -781,6 +848,15 @@ function setupStir(){
 }
 function setupDecorate(){
   const state = { flavour: C.potions.flavours[0], icing: C.potions.icingColours[0], toppings: [], name: '' };
+  const orbit = $('#cakeOrbit');
+  const orbitShadow = $('#cakeOrbitShadow');
+  let orbitY = 0, orbitX = 8;
+  function applyOrbit(){
+    orbit.style.transform = `rotateX(${orbitX}deg) rotateY(${orbitY}deg)`;
+    orbitShadow.style.transform = `scaleX(${1 - Math.abs(orbitY)/140}) translateX(${orbitY*0.6}px)`;
+  }
+  applyOrbit();
+
   function row(id, arr, multi){
     const rowEl = $('#' + id);
     rowEl.innerHTML = '';
@@ -793,7 +869,10 @@ function setupDecorate(){
         if (multi){
           const idx = state.toppings.indexOf(v);
           if (idx >= 0){ state.toppings.splice(idx,1); b.classList.remove('selected'); }
-          else if (state.toppings.length < 3){ state.toppings.push(v); b.classList.add('selected'); }
+          else if (state.toppings.length < 3){
+            state.toppings.push(v); b.classList.add('selected');
+            flyToppingToCake(b, state.toppings.length - 1);
+          }
           else { toast('Teen se zyada nahi. Cake hai, Christmas tree nahi.', 1800); return; }
         } else {
           [...rowEl.children].forEach(c => c.classList.remove('selected'));
@@ -811,6 +890,21 @@ function setupDecorate(){
   const nameInput = $('#cakeNameInput');
   nameInput.addEventListener('input', () => { state.name = nameInput.value; updatePreview(); });
   const previewEl = $('#cakePreview');
+
+  function flyToppingToCake(btn, slotIndex){
+    if (prefersReducedMotion || !window.gsap) return;
+    const bRect = btn.getBoundingClientRect();
+    const cRect = previewEl.getBoundingClientRect();
+    const slot = TOPPING_SLOTS[slotIndex % TOPPING_SLOTS.length];
+    const clone = document.createElement('div');
+    clone.textContent = btn.textContent;
+    clone.style.cssText = `position:fixed; left:${bRect.left+bRect.width/2}px; top:${bRect.top+bRect.height/2}px; font-size:0.85rem; z-index:200; pointer-events:none; background:var(--gold); color:var(--ink); padding:4px 8px; border-radius:6px;`;
+    document.body.appendChild(clone);
+    const targetX = cRect.left + cRect.width/2 + slot[0]*0.9;
+    const targetY = cRect.top + cRect.height*0.35 + slot[1]*0.9;
+    gsap.to(clone, { left: targetX, top: targetY, scale: 0.3, opacity: 0.3, duration: 0.55, ease: 'power2.in', onComplete: () => clone.remove() });
+  }
+
   function updatePreview(pulse){
     previewEl.innerHTML = cakeSVG(state, { candleCount: 6 });
     if (pulse && !prefersReducedMotion){
@@ -825,16 +919,80 @@ function setupDecorate(){
     $all('#icingRow button').forEach(b => b.classList.toggle('selected', b.textContent === state.icing));
     $all('#toppingRow button').forEach(b => b.classList.toggle('selected', state.toppings.includes(b.textContent)));
   }
+
+  // drag to orbit-inspect the cake
+  const orbitStage = $('#cakeOrbitStage');
+  let dragging = false, startX = 0, startOrbitY = 0;
+  orbitStage.addEventListener('pointerdown', e => { dragging = true; startX = e.clientX; startOrbitY = orbitY; orbit.style.cursor = 'grabbing'; orbitStage.setPointerCapture(e.pointerId); });
+  orbitStage.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    orbitY = Math.max(-40, Math.min(40, startOrbitY + (e.clientX - startX) * 0.35));
+    applyOrbit();
+  });
+  function endOrbitDrag(){
+    if (!dragging) return;
+    dragging = false; orbit.style.cursor = 'grab';
+    if (window.gsap) gsap.to({ v: orbitY }, { v: 0, duration: 0.6, ease: 'elastic.out(1,0.5)', onUpdate: function(){ orbitY = this.targets()[0].v; applyOrbit(); } });
+    else { orbitY = 0; applyOrbit(); }
+  }
+  orbitStage.addEventListener('pointerup', endOrbitDrag);
+  orbitStage.addEventListener('pointerleave', endOrbitDrag);
+
+  // icing drizzle trail — draw directly on the cake with the current icing colour
+  const trailCanvas = $('#icingTrailCanvas');
+  function sizeTrailCanvas(){ const r = previewEl.getBoundingClientRect(); trailCanvas.width = r.width; trailCanvas.height = r.height; }
+  sizeTrailCanvas();
+  const tctx = trailCanvas.getContext('2d');
+  let painting = false, lastPt = null;
+  function trailPoint(e){ const r = trailCanvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  trailCanvas.addEventListener('pointerdown', e => {
+    if (dragging) return;
+    painting = true; lastPt = trailPoint(e);
+    trailCanvas.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+  trailCanvas.addEventListener('pointermove', e => {
+    if (!painting) return;
+    const p = trailPoint(e);
+    const col = (ICING_COLORS[state.icing] || ICING_COLORS.Emerald).light;
+    tctx.strokeStyle = col; tctx.lineWidth = 4; tctx.lineCap = 'round'; tctx.lineJoin = 'round';
+    tctx.beginPath(); tctx.moveTo(lastPt.x, lastPt.y);
+    const mid = { x: (lastPt.x+p.x)/2, y: (lastPt.y+p.y)/2 };
+    tctx.quadraticCurveTo(lastPt.x, lastPt.y, mid.x, mid.y);
+    tctx.stroke();
+    lastPt = p;
+    e.stopPropagation();
+  });
+  function endPaint(){ painting = false; }
+  trailCanvas.addEventListener('pointerup', endPaint);
+  trailCanvas.addEventListener('pointerleave', endPaint);
+
   $('#saveCakeBtn').addEventListener('click', () => {
     lsSet('palak26_cake', state);
-    $('#cakeSavedMsg').hidden = false;
     vibrate([20,30,20]);
-    if (window.confetti && !prefersReducedMotion){
-      const r = previewEl.getBoundingClientRect();
-      confetti({ particleCount: 46, spread: 65, startVelocity: 28, origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height*0.3) / window.innerHeight }, colors: ['#0f3d2e','#c9a35b','#eef3f3'] });
-    }
-    previewEl.animate([{ transform: 'scale(1)' },{ transform: 'scale(1.08)' },{ transform: 'scale(1)' }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' });
     track('game_complete', { game: 'potions', flavour: state.flavour, icing: state.icing });
+    // slow reveal orbit spin before confirming
+    if (window.gsap && !prefersReducedMotion){
+      const spin = { v: orbitY };
+      gsap.to(spin, {
+        v: orbitY + 360, duration: 2.2, ease: 'power2.inOut',
+        onUpdate: () => { orbit.style.transform = `rotateX(${orbitX}deg) rotateY(${spin.v}deg)`; },
+        onComplete: () => {
+          applyOrbit();
+          $('#cakeSavedMsg').hidden = false;
+          if (window.confetti){
+            const r = previewEl.getBoundingClientRect();
+            confetti({ particleCount: 46, spread: 65, startVelocity: 28, origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height*0.3) / window.innerHeight }, colors: ['#0f3d2e','#c9a35b','#eef3f3'] });
+          }
+        }
+      });
+    } else {
+      $('#cakeSavedMsg').hidden = false;
+      if (window.confetti){
+        const r = previewEl.getBoundingClientRect();
+        confetti({ particleCount: 46, spread: 65, startVelocity: 28, origin: { x: (r.left + r.width/2) / window.innerWidth, y: (r.top + r.height*0.3) / window.innerHeight }, colors: ['#0f3d2e','#c9a35b','#eef3f3'] });
+      }
+    }
   });
 }
 function bounceEl(el){
@@ -1279,6 +1437,60 @@ function initLetter(){
    GRAND FINALE
    ============================================================ */
 let fxState = { particles: [], running: false, raf: null };
+/* ---------- Three.js starfield (page 14 night sky, real depth) ---------- */
+let starScene, starCamera, starRenderer, starPoints, starRaf = null, starClock = 0, starReady = false;
+function initStarfield(){
+  if (!window.THREE) { starReady = false; return; }
+  try{
+    const canvas = $('#starCanvas');
+    const rect = $('#page-finale').getBoundingClientRect();
+    starRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    starRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    starRenderer.setSize(rect.width || 320, rect.height || 600);
+    starScene = new THREE.Scene();
+    starCamera = new THREE.PerspectiveCamera(60, (rect.width||320)/(rect.height||600), 1, 900);
+    starCamera.position.z = 220;
+    const starCount = prefersReducedMotion ? 50 : 200;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++){
+      positions[i*3] = (Math.random()-0.5) * 620;
+      positions[i*3+1] = (Math.random()-0.5) * 420 - 30;
+      positions[i*3+2] = -Math.random() * 500;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xf5ecd0, size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.85 });
+    starPoints = new THREE.Points(geo, mat);
+    starScene.add(starPoints);
+    starReady = true;
+    window.addEventListener('resize', resizeStarfield);
+  }catch(e){ starReady = false; }
+}
+function resizeStarfield(){
+  if (!starReady) return;
+  const rect = $('#page-finale').getBoundingClientRect();
+  starCamera.aspect = (rect.width||320) / (rect.height||600);
+  starCamera.updateProjectionMatrix();
+  starRenderer.setSize(rect.width||320, rect.height||600);
+}
+function animateStars(now){
+  if (!starReady) return;
+  starClock += 0.006;
+  starCamera.position.x = Math.sin(starClock) * 14;
+  starCamera.position.y = Math.cos(starClock * 0.6) * 7;
+  starCamera.lookAt(0, 0, -150);
+  starPoints.rotation.z += 0.0003;
+  starRenderer.render(starScene, starCamera);
+  starRaf = requestAnimationFrame(animateStars);
+}
+function resumeStarfield(){
+  if (!starReady) initStarfield();
+  if (starReady && !starRaf) starRaf = requestAnimationFrame(animateStars);
+}
+function pauseStarfield(){
+  if (starRaf){ cancelAnimationFrame(starRaf); starRaf = null; }
+}
+
 function initFinale(){
   $('#lumosBtn').textContent = C.finale.lumosLabel;
   $('#blowBtn').textContent = C.finale.blowLabel;
@@ -1294,14 +1506,15 @@ function initFinale(){
     + `<p class="finale-cake-label">${cake.name}'s ${cake.flavour} cake · ${cake.icing}</p>`;
 
   $('#lumosBtn').addEventListener('click', lightCandles);
-  $('#blowBtn').addEventListener('click', blowOutCandles);
+  $('#blowBtn').addEventListener('click', () => blowOutCandles(false));
 
   const canvas = $('#fxCanvas');
   function resizeFx(){ const r = $('#page-finale').getBoundingClientRect(); canvas.width = r.width; canvas.height = r.height; }
   resizeFx(); window.addEventListener('resize', resizeFx);
   document.addEventListener('visibilitychange', () => {
     fxState.running = !document.hidden && fxState.wantRunning;
-    if (document.hidden) stopFinaleMic();
+    if (document.hidden){ stopFinaleMic(); pauseStarfield(); }
+    else if (pageOrder[currentIndex] === 'finale') resumeStarfield();
   });
 
   const wishesEl = $('#wishChips');
@@ -1314,20 +1527,31 @@ function initFinale(){
   $('#finaleContinueBtn').addEventListener('click', showFinaleFinal);
   $('#readAgainBtn').addEventListener('click', () => { showPage(0); });
   $('#backQuietBtn').addEventListener('click', () => { showPage(pageOrder.indexOf('quiet')); });
+
+  resumeStarfield();
 }
 function pulseStage(){
   if (prefersReducedMotion) return;
   const stage = $('#finaleStage');
   stage.classList.remove('pulse'); void stage.offsetWidth; stage.classList.add('pulse');
 }
+function gcake(vars){
+  if (window.gsap) gsap.to('#finaleCake', vars);
+  else { const el = $('#finaleCake'); if (vars.scale) el.style.transform = `scale(${vars.scale})`; }
+}
 function lightCandles(){
   ensureAudio();
   const candles = $all('#finaleCake .candle');
+  gcake({ scale: 1.08, duration: 1.1, ease: 'power2.out' });
   let cumulative = 0;
   candles.forEach((c, i) => {
     cumulative += 90 + Math.random() * 70;
     setTimeout(() => {
       c.style.opacity = '1'; c.dataset.lit = '1';
+      if (window.gsap && !prefersReducedMotion){
+        gsap.fromTo(c, { scale: 0.3 }, { scale: 1, duration: 0.4, ease: 'back.out(3)', transformOrigin: '50% 100%' });
+        gsap.to(c, { scale: '+=0.12', rotation: (Math.random()*8-4), duration: 0.18+Math.random()*0.15, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.4, transformOrigin: '50% 100%' });
+      }
       const ctx = ensureAudio();
       if (ctx){
         const t = ctx.currentTime;
@@ -1338,14 +1562,14 @@ function lightCandles(){
         osc.connect(g); g.connect(masterGain); osc.start(t); osc.stop(t+0.25);
       }
       vibrate(8);
-      if (i === candles.length - 1) pulseStage();
     }, cumulative);
   });
-  setTimeout(() => { $('#lumosBtn').hidden = true; $('#blowBtn').hidden = false; $('#micHint').hidden = false; tryMic(); }, cumulative + 350);
+  setTimeout(() => { $('#lumosBtn').hidden = true; $('#blowBtn').hidden = false; $('#micHint').hidden = false; $('#breathMeter').hidden = false; tryMic(); }, cumulative + 350);
 }
 let activeMicStream = null;
 function stopFinaleMic(){
   if (activeMicStream){ try{ activeMicStream.getTracks().forEach(t => t.stop()); }catch(e){} activeMicStream = null; }
+  const fill = $('#breathFill'); if (fill) fill.style.width = '0%';
 }
 function tryMic(){
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
@@ -1358,6 +1582,7 @@ function tryMic(){
     src.connect(analyser);
     const data = new Uint8Array(analyser.frequencyBinCount);
     let loud = 0, blown = false;
+    const fill = $('#breathFill');
     function check(){
       if (blown || $('#blowBtn').hidden || pageOrder[currentIndex] !== 'finale'){
         stream.getTracks().forEach(t=>t.stop());
@@ -1367,35 +1592,42 @@ function tryMic(){
       analyser.getByteTimeDomainData(data);
       let sum = 0; for (let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum += v*v; }
       const rms = Math.sqrt(sum/data.length);
+      if (fill) fill.style.width = Math.min(100, rms * 400) + '%';
       if (rms > 0.12) loud++; else loud = 0;
-      if (loud > 4){ blown = true; stream.getTracks().forEach(t=>t.stop()); activeMicStream = null; blowOutCandles(); return; }
+      if (loud > 4){ blown = true; stream.getTracks().forEach(t=>t.stop()); activeMicStream = null; blowOutCandles(true); return; }
       requestAnimationFrame(check);
     }
     check();
   }).catch(()=>{});
 }
 let candlesBlown = false;
-function blowOutCandles(){
+function smokeWisp(x, y){
+  const stage = $('#finaleStage');
+  const puff = document.createElement('span');
+  puff.className = 'smoke-puff'; puff.textContent = '💨';
+  puff.style.left = x + 'px'; puff.style.top = y + 'px';
+  stage.appendChild(puff);
+  if (window.gsap){
+    gsap.fromTo(puff, { opacity: 0.85, scale: 0.5, x: 0, y: 0 },
+      { opacity: 0, scale: 1.6 + Math.random(), x: (Math.random()-0.5)*40, y: -40 - Math.random()*30, duration: 1.1 + Math.random()*0.6, ease: 'power1.out',
+        onComplete: () => puff.remove() });
+  } else { puff.classList.add('css-fallback'); setTimeout(() => puff.remove(), 1300); }
+}
+function blowOutCandles(fromMic){
   if (candlesBlown) return; candlesBlown = true;
-  const cakeRect = $('#finaleCake').getBoundingClientRect();
   const stageRect = $('#finaleStage').getBoundingClientRect();
-  $all('#finaleCake .candle').forEach((c, i) => {
+  $all('#finaleCake .candle').forEach((c) => {
+    if (window.gsap) gsap.killTweensOf(c);
     c.style.opacity = '0.15';
     if (!prefersReducedMotion){
-      const puff = document.createElement('span');
-      puff.className = 'smoke-puff';
-      puff.textContent = '💨';
       const r = c.getBoundingClientRect();
-      puff.style.left = (r.left - stageRect.left) + 'px';
-      puff.style.top = (r.top - stageRect.top) + 'px';
-      $('#finaleStage').appendChild(puff);
-      setTimeout(() => puff.remove(), 1300);
+      for (let k = 0; k < 2; k++) smokeWisp(r.left - stageRect.left + (Math.random()-0.5)*8, r.top - stageRect.top + (Math.random()-0.5)*6);
     }
   });
-  $('#blowBtn').hidden = true; $('#micHint').hidden = true;
+  $('#blowBtn').hidden = true; $('#micHint').hidden = true; $('#breathMeter').hidden = true;
   vibrate([60,40,60,40,120]);
-  pulseStage();
-  setTimeout(startBurstSequence, 500);
+  gcake({ scale: 1.22, duration: 0.45, ease: 'power2.out' });
+  setTimeout(startBurstSequence, 550);
 }
 function startBurstSequence(){
   const skyText = $('#finaleSkyText');
@@ -1405,16 +1637,21 @@ function startBurstSequence(){
   if (!prefersReducedMotion){
     const streak = document.createElement('div');
     streak.className = 'falcon-streak';
-    streak.textContent = '🦅';
+    const inner = document.createElement('span');
+    inner.textContent = '🦅'; inner.style.display = 'inline-block';
+    streak.appendChild(inner);
     $('#finaleStage').appendChild(streak);
+    if (window.gsap){
+      gsap.fromTo(inner, { scale: 0.6 }, { scale: 1.6, duration: 0.75, ease: 'power1.out', yoyo: true, repeat: 1 });
+    }
     setTimeout(() => streak.remove(), 1600);
   }
 
   setTimeout(() => {
     skyText.textContent = C.finale.skyText;
-    pulseStage();
+    gcake({ scale: 0.82, duration: 0.85, ease: 'power3.inOut' });
     if (window.confetti){
-      const burst = () => confetti({ particleCount: prefersReducedMotion?30:90, spread: 100, startVelocity: 38, origin: { y: 0.4 }, colors: ['#0f3d2e','#c7d1d3','#c9a35b','#b97878'] });
+      const burst = () => confetti({ particleCount: prefersReducedMotion?30:90, spread: 100, startVelocity: 38, gravity: 1.1, drift: 0.4, ticks: 260, origin: { y: 0.4 }, colors: ['#0f3d2e','#c7d1d3','#c9a35b','#b97878'] });
       burst(); setTimeout(burst, 350); setTimeout(burst, 750);
     }
     spawnBalloonsRising();
@@ -1430,18 +1667,20 @@ function spawnBalloonsRising(){
   const n = prefersReducedMotion ? 3 : 8;
   for (let i = 0; i < n; i++){
     setTimeout(() => {
-      const b = document.createElement('div');
-      const sizePx = 34 + Math.random()*26;
+      const depth = Math.random();
+      const sizePx = (26 + depth*34);
       const pal = BALLOON_PALETTE[i % BALLOON_PALETTE.length];
+      const b = document.createElement('div');
       b.innerHTML = balloonSVG(pal.base, pal.light);
-      b.style.cssText = `position:absolute; left:${5+Math.random()*85}%; bottom:-10%; width:${sizePx}px; height:${sizePx*1.3}px; z-index:3;`;
+      b.style.cssText = `position:absolute; left:${5+Math.random()*85}%; bottom:-10%; width:${sizePx}px; height:${sizePx*1.3}px; z-index:${depth>0.5?3:2}; opacity:${0.55+depth*0.45}; filter:blur(${(1-depth)*1.6}px);`;
       stage.appendChild(b);
       const sway = 18 + Math.random()*22;
+      const dur = (5200 + Math.random()*2200) * (1.3 - depth*0.5);
       const anim = b.animate([
         { transform: 'translateY(0) translateX(0) rotate(0deg)', opacity: 1 },
-        { transform: `translateY(-${window.innerHeight*0.5}px) translateX(${sway}px) rotate(4deg)`, opacity: 1 },
-        { transform: `translateY(-${window.innerHeight}px) translateX(-${sway}px) rotate(-4deg)`, opacity: 0.9 }
-      ], { duration: 5200 + Math.random()*2200, easing: 'ease-out' });
+        { transform: `translateY(-${window.innerHeight*0.5}px) translateX(${sway}px) rotate(${8+Math.random()*8}deg)`, opacity: 1 },
+        { transform: `translateY(-${window.innerHeight}px) translateX(-${sway}px) rotate(${-8-Math.random()*8}deg)`, opacity: 0.9 }
+      ], { duration: dur, easing: 'ease-out' });
       anim.onfinish = () => b.remove();
     }, i * 220);
   }
@@ -1449,17 +1688,35 @@ function spawnBalloonsRising(){
 function releaseLantern(wish){
   const stage = $('#finaleStage');
   const l = document.createElement('div');
-  l.textContent = '🏮';
-  l.style.cssText = `position:absolute; left:${20+Math.random()*60}%; bottom:10%; font-size:1.8rem; z-index:3; text-align:center;`;
+  l.className = 'lantern-sprite';
   l.innerHTML = `🏮<br><span style="font-family:var(--font-hand); font-size:0.9rem;">${wish}</span>`;
+  l.style.cssText = `position:absolute; left:${20+Math.random()*60}%; bottom:10%; font-size:1.8rem; z-index:3; text-align:center;`;
   stage.appendChild(l);
-  const anim = l.animate([
-    { transform: 'translateY(0)', opacity: 1 },
-    { transform: `translateY(-${window.innerHeight*0.8}px)`, opacity: 0 }
-  ], { duration: 4500, easing: 'ease-out' });
-  anim.onfinish = () => l.remove();
+  const rise = window.innerHeight * (0.75 + Math.random()*0.15);
+  const dur = 4.2 + Math.random()*1.6;
   vibrate(20);
   track('lantern_released', { wish });
+  if (window.gsap){
+    const tl = gsap.timeline({ onComplete: () => {
+      const flash = document.createElement('div');
+      const lr = l.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      flash.className = 'lantern-burst';
+      flash.style.left = (lr.left - sr.left + lr.width/2) + 'px';
+      flash.style.top = (lr.top - sr.top) + 'px';
+      stage.appendChild(flash);
+      gsap.fromTo(flash, { scale: 0.2, opacity: 1 }, { scale: 2.2, opacity: 0, duration: 0.7, ease: 'power1.out', onComplete: () => flash.remove() });
+      l.remove();
+    }});
+    tl.to(l, { y: -rise, duration: dur, ease: 'power1.out' }, 0);
+    tl.to(l, { x: '+=16', duration: 1.1, repeat: Math.ceil(dur/1.1), yoyo: true, ease: 'sine.inOut' }, 0);
+    tl.to(l, { rotation: 6, duration: 1.4, repeat: Math.ceil(dur/1.4), yoyo: true, ease: 'sine.inOut' }, 0);
+  } else {
+    const anim = l.animate([
+      { transform: 'translateY(0)', opacity: 1 },
+      { transform: `translateY(-${rise}px)`, opacity: 0 }
+    ], { duration: dur*1000, easing: 'ease-out' });
+    anim.onfinish = () => l.remove();
+  }
 }
 function showFinaleFinal(){
   $('#lanternRelease').hidden = true;
@@ -1467,7 +1724,7 @@ function showFinaleFinal(){
   $('#finaleFinalText').innerHTML = C.finale.finalText.map((l,i) => `<p style="animation-delay:${i*0.6}s">${l}</p>`).join('');
 }
 
-/* ---------- fireworks canvas ---------- */
+/* ---------- fireworks canvas (varied depth + soft trail) ---------- */
 function startFireworks(){
   const canvas = $('#fxCanvas');
   const ctx = canvas.getContext('2d');
@@ -1477,36 +1734,40 @@ function startFireworks(){
   let lastSpawn = 0;
   function frameStep(now){
     if (!fxState.running){ fxState.raf = requestAnimationFrame(frameStep); return; }
-    ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(5,18,13,0.28)';
+    ctx.fillRect(0,0,canvas.width, canvas.height);
     if (now < fxState.endAt && now - lastSpawn > (prefersReducedMotion?500:280)){
       lastSpawn = now;
       spawnFirework(canvas.width, canvas.height);
     }
     fxState.particles.forEach(p => {
-      p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= 1;
-      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      p.x += p.vx; p.y += p.vy; p.vy += 0.045; p.vx *= 0.99; p.rot += p.vr; p.life -= 1;
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife) * p.depth;
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
     });
     ctx.globalAlpha = 1;
     fxState.particles = fxState.particles.filter(p => p.life > 0);
     if (now < fxState.endAt || fxState.particles.length){
       fxState.raf = requestAnimationFrame(frameStep);
     } else {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
       fxState.running = false; fxState.wantRunning = false;
     }
   }
   fxState.raf = requestAnimationFrame(frameStep);
 }
 function spawnFirework(w, h){
-  const colors = ['#0f3d2e','#c7d1d3','#c9a35b','#1e5c46'];
+  const colors = ['#0f3d2e','#c7d1d3','#c9a35b','#1e5c46','#b97878'];
   const cx = 30 + Math.random()*(w-60), cy = 40 + Math.random()*(h*0.5);
   const color = colors[Math.floor(Math.random()*colors.length)];
-  const count = prefersReducedMotion ? 14 : (fxState.particles.length > 220 ? 10 : 26);
+  const count = prefersReducedMotion ? 14 : (fxState.particles.length > 240 ? 10 : 28);
   for (let i = 0; i < count; i++){
-    const a = (Math.PI*2*i)/count;
-    const speed = 1.5 + Math.random()*2;
-    fxState.particles.push({ x: cx, y: cy, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed, life: 50+Math.random()*20, maxLife: 70, color });
+    const a = (Math.PI*2*i)/count + Math.random()*0.2;
+    const depth = 0.5 + Math.random()*0.5;
+    const speed = (1.5 + Math.random()*2) * depth;
+    fxState.particles.push({ x: cx, y: cy, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed, vr: (Math.random()-0.5)*0.2, rot: 0,
+      life: 50+Math.random()*20, maxLife: 70, color, r: 1.4 + depth*1.8, depth });
   }
 }
 
