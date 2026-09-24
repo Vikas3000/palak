@@ -4,325 +4,119 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>The Book of Palak — Chapter 26</title>
-<meta property="og:title" content="The Book of Palak — Chapter 26">
-<meta property="og:description" content="A little magic for a 26th birthday.">
-<meta property="og:image" content="og-image.jpg">
+<title>The Book of Palak</title>
+<meta property="og:title" content="The Book of Palak">
+<meta property="og:description" content="Chapter 26 is closed. Chapter 27 is already on its way.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500,600;1,400&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css">
+<style>
+  :root{
+    --parchment: #f3e9d2;
+    --parchment-dark: #e6d7b3;
+    --emerald: #0f3d2e;
+    --ink: #1c1a17;
+    --gold: #c9a35b;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ height: 100%; margin: 0; }
+  body{
+    min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--ink);
+    background: radial-gradient(circle at 20% 10%, rgba(255,255,255,0.06), transparent 40%),
+                linear-gradient(160deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+    text-align: center;
+  }
+  .card{
+    max-width: 420px;
+    width: 100%;
+  }
+  .falcon{
+    font-size: 2.6rem;
+    margin-bottom: 0.3em;
+    filter: drop-shadow(0 4px 8px rgba(15,61,46,0.35));
+  }
+  h1{
+    font-weight: 600;
+    font-size: 1.7rem;
+    color: var(--emerald);
+    margin: 0 0 0.2em;
+    letter-spacing: 0.01em;
+  }
+  .closed-line{
+    font-family: 'Caveat', cursive;
+    font-size: 1.3rem;
+    color: var(--emerald);
+    opacity: 0.85;
+    margin: 0 0 1.6em;
+  }
+  .countdown-label{
+    font-size: 1rem;
+    opacity: 0.75;
+    margin: 0 0 0.5em;
+  }
+  .countdown{
+    font-family: 'Caveat', cursive;
+    font-size: 2.6rem;
+    color: var(--ink);
+    margin: 0 0 1.4em;
+    line-height: 1.1;
+  }
+  .countdown span{ display: inline-block; min-width: 1.4ch; }
+  .note{
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 340px;
+    margin: 0 auto;
+    opacity: 0.85;
+  }
+  .signature{
+    margin-top: 1.6em;
+    font-family: 'Caveat', cursive;
+    font-size: 1.2rem;
+    color: var(--gold);
+  }
+</style>
 </head>
 <body>
 
-<div id="reducedMotionNote" class="rm-note" hidden>Motion reduced, per your device settings.</div>
-<div id="browserNote" class="browser-note" hidden>Chrome mein kholo for full magic.</div>
+<div class="card">
+  <div class="falcon">🦅</div>
+  <h1>The Book of Palak</h1>
+  <p class="closed-line">Chapter 26 is closed. Mischief managed.</p>
 
-<button id="muteToggle" class="mute-toggle" aria-label="Mute">🔈</button>
-<button id="wandIcon" class="wand-icon" aria-label="Open games" hidden>🪄</button>
+  <p class="countdown-label">Chapter 27 begins in</p>
+  <div class="countdown" id="countdown">—</div>
 
-<div id="progressBar" class="progress-bar" hidden>
-  <span id="progressText">Page 1 of 14</span>
+  <p class="note">The falcon's resting, the cake's finished, and the next chapter's already being written — quietly, one day at a time, same as always.</p>
+  <p class="signature">— Boss</p>
 </div>
 
-<div class="ambient-dust" id="ambientDust" aria-hidden="true"></div>
-<main id="book" class="book">
-
-  <!-- ============ CHAPTER 0: OWL LETTER ============ -->
-  <section class="page" data-page="owl" id="page-owl">
-    <div class="parchment-bg"></div>
-    <div id="countdownWrap" class="countdown-wrap">
-      <p class="countdown-heading" id="countdownHeading"></p>
-      <div class="countdown-candle">🕯️</div>
-      <div class="countdown-timer" id="countdownTimer">--:--:--:--</div>
-      <button class="btn-ghost" id="skipCountdown"></button>
-    </div>
-    <div id="envelopeWrap" class="envelope-wrap" hidden>
-      <div class="envelope" id="envelope">
-        <div class="envelope-flap"></div>
-        <div class="wax-seal" id="waxSeal">
-          <svg viewBox="0 0 60 60" width="56" height="56"><circle cx="30" cy="30" r="28" fill="#5b1a1a"/><text x="30" y="40" font-family="Cormorant Garamond, serif" font-size="30" fill="#e8d9b5" text-anchor="middle">P</text></svg>
-        </div>
-        <p class="tap-hint" id="tapHint"></p>
-      </div>
-      <div class="letter-inner" id="letterInner" hidden>
-        <p class="salutation" id="owlSalutation"></p>
-        <ul class="owl-body" id="owlBody"></ul>
-        <button class="btn-primary next-btn" data-next>Next page →</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ THE DECREE ============ -->
-  <section class="page" data-page="decree" id="page-decree">
-    <div class="decree-card">
-      <p class="decree-title" id="decreeTitle"></p>
-      <p class="decree-subtitle" id="decreeSubtitle"></p>
-      <div class="decree-body" id="decreeBody"></div>
-      <p class="decree-sign-prompt" id="decreeSignPrompt"></p>
-      <canvas id="signatureCanvas" class="signature-canvas" width="300" height="120"></canvas>
-      <button class="btn-ghost small" id="clearSignature">Clear</button>
-      <div class="wax-seal small" id="decreeSeal">
-        <svg viewBox="0 0 60 60" width="46" height="46"><circle cx="30" cy="30" r="28" fill="#5b1a1a"/><text x="30" y="40" font-family="Cormorant Garamond, serif" font-size="30" fill="#e8d9b5" text-anchor="middle">P</text></svg>
-      </div>
-      <p class="decree-signed" id="decreeSignedLine" hidden></p>
-      <button class="btn-primary next-btn" data-next hidden id="decreeNextBtn">Next page →</button>
-    </div>
-  </section>
-
-  <!-- ============ CHAPTER 1: SORTING QUIZ ============ -->
-  <section class="page" data-page="quiz" id="page-quiz">
-    <h2 class="chapter-title">The Sorting Quiz</h2>
-    <p class="chapter-intro" id="quizIntro"></p>
-    <div id="quizWrap"></div>
-    <div id="quizVerdict" class="quiz-verdict" hidden>
-      <p class="verdict-line" id="verdictLine"></p>
-      <p class="verdict-sub" id="verdictSub"></p>
-      <button class="btn-primary next-btn" data-next>Next page →</button>
-    </div>
-  </section>
-
-  <!-- ============ MARAUDER'S MAP MAZE ============ -->
-  <section class="page" data-page="maze" id="page-maze">
-    <h2 class="chapter-title">The Marauder's Map</h2>
-    <p class="chapter-intro" id="mazeIntro"></p>
-    <button class="btn-primary" id="oathBtn"></button>
-    <div id="mazeGame" class="maze-game" hidden>
-      <div class="maze-3d-stage" id="maze3dStage">
-        <div class="maze-floor" id="mazeFloor">
-          <svg id="mazeSvg" viewBox="0 0 320 480" class="maze-svg"></svg>
-          <div id="mazeWalls" class="maze-walls"></div>
-        </div>
-      </div>
-      <p class="maze-result" id="mazeResult" hidden></p>
-      <button class="btn-primary next-btn" data-next id="mazeNextBtn" hidden>Next page →</button>
-    </div>
-  </section>
-
-  <!-- ============ BALLOON POP ============ -->
-  <section class="page" data-page="balloons" id="page-balloons">
-    <h2 class="chapter-title">Pop the Balloons</h2>
-    <p class="chapter-intro" id="balloonIntro"></p>
-    <div id="balloonField" class="balloon-field"></div>
-    <button class="btn-primary next-btn" data-next id="balloonNextBtn" hidden>Next page →</button>
-  </section>
-
-  <!-- ============ SCRATCH CARDS ============ -->
-  <section class="page" data-page="scratch" id="page-scratch">
-    <h2 class="chapter-title">Honeydukes Coupons</h2>
-    <p class="chapter-intro" id="scratchIntro"></p>
-    <div id="scratchField" class="scratch-field"></div>
-    <button class="btn-primary next-btn" data-next id="scratchNextBtn" hidden>Next page →</button>
-  </section>
-
-  <!-- ============ ROOM OF REQUIREMENT ============ -->
-  <section class="page" data-page="room" id="page-room">
-    <h2 class="chapter-title">The Room of Requirement</h2>
-    <p class="chapter-intro" id="roomIntro"></p>
-    <div class="room-doors">
-      <button class="door" data-game="potions"><span class="door-icon">🧪</span><span id="door1"></span><small id="door1sub"></small></button>
-      <button class="door" data-game="falcon"><span class="door-icon">🦅</span><span id="door2"></span><small id="door2sub"></small></button>
-      <button class="door" data-game="guess"><span class="door-icon">📖</span><span id="door3"></span><small id="door3sub"></small></button>
-    </div>
-    <button class="btn-primary next-btn" data-next>Next page →</button>
-  </section>
-
-  <!-- ============ DAILY PROPHET ============ -->
-  <section class="page" data-page="prophet" id="page-prophet">
-    <div class="prophet-sheet">
-      <h1 class="masthead" id="masthead"></h1>
-      <p class="dateline" id="dateline"></p>
-      <div id="headlines" class="headlines"></div>
-      <div class="prophet-column">
-        <h3 id="columnTitle"></h3>
-        <div id="columnBody"></div>
-      </div>
-    </div>
-    <button class="btn-primary next-btn" data-next>Next page →</button>
-  </section>
-
-  <!-- ============ PENSIEVE ============ -->
-  <section class="page" data-page="pensieve" id="page-pensieve">
-    <h2 class="chapter-title">The Pensieve</h2>
-    <p class="chapter-intro" id="pensieveIntro"></p>
-    <div class="pensieve-bowl" id="pensieveBowl">
-      <svg viewBox="0 0 200 120" width="180"><ellipse cx="100" cy="60" rx="95" ry="30" fill="#8fa39a" opacity="0.5"/><ellipse cx="100" cy="55" rx="90" ry="26" fill="#c9d6d0" opacity="0.6"/><path d="M10 60 Q100 110 190 60 L180 100 Q100 130 20 100 Z" fill="#5c6b66"/></svg>
-    </div>
-    <div id="polaroidStrip" class="polaroid-strip" hidden></div>
-    <button class="btn-primary next-btn" data-next id="pensieveNextBtn" hidden>Next page →</button>
-  </section>
-
-  <!-- ============ QUIET ROOM ============ -->
-  <section class="page" data-page="quiet" id="page-quiet">
-    <div class="quiet-scene-3d" id="quietScene3d">
-      <div class="quiet-layers" id="quietLayers">
-        <div class="q-wall"></div>
-        <div class="q-shelf">📚 📖 📚</div>
-        <div class="quiet-window">
-          <div class="rain rain-far"></div>
-          <div class="rain rain-near"></div>
-          <canvas class="fog-canvas" id="fogCanvas"></canvas>
-        </div>
-        <div class="quiet-fire">🔥</div>
-        <div class="quiet-falcon">🦅</div>
-      </div>
-    </div>
-    <p class="scene-hint">Wipe the fogged window. Tilt the room by dragging.</p>
-    <p class="chapter-intro" id="quietIntro"></p>
-    <div class="quiet-sounds" id="quietSounds"></div>
-    <div class="lantern-wrap">
-      <p id="breathingLabel"></p>
-      <div class="lantern" id="breathingLantern"></div>
-      <p class="breathe-word" id="breatheWord"></p>
-    </div>
-    <p class="quiet-line" id="quietLine"></p>
-    <button class="btn-primary next-btn" data-next>Next page →</button>
-  </section>
-
-  <!-- ============ OPEN WHEN LETTERS ============ -->
-  <section class="page" data-page="openwhen" id="page-openwhen">
-    <h2 class="chapter-title">Open When...</h2>
-    <div id="letterShelf" class="letter-shelf"></div>
-    <button class="btn-primary next-btn" data-next>Next page →</button>
-  </section>
-
-  <!-- ============ DISTANCE HUG ============ -->
-  <section class="page" data-page="hug" id="page-hug">
-    <p class="chapter-intro" id="hugPrompt"></p>
-    <button class="hug-seal" id="hugSeal">
-      <svg viewBox="0 0 120 120" width="120"><circle cx="60" cy="60" r="55" fill="none" stroke="#c9a35b" stroke-width="3"/><path d="M60 85 C30 65 20 45 35 32 C45 24 60 30 60 45 C60 30 75 24 85 32 C100 45 90 65 60 85Z" fill="#c9a35b" opacity="0.85"/></svg>
-    </button>
-    <p class="hug-line" id="hugLine" hidden></p>
-    <button class="btn-primary next-btn" data-next id="hugNextBtn" hidden>Next page →</button>
-  </section>
-
-  <!-- ============ THE LETTER ============ -->
-  <section class="page" data-page="letter" id="page-letter">
-    <div class="letter-parchment">
-      <pre id="letterText" class="letter-text"></pre>
-      <button class="btn-ghost small" id="skipTypewriter">Skip →</button>
-    </div>
-    <div class="feather-fall" id="featherFall" hidden>🪶</div>
-    <button class="btn-primary next-btn" data-next id="letterNextBtn" hidden>Next page →</button>
-  </section>
-
-  <!-- ============ GRAND FINALE ============ -->
-  <section class="page" data-page="finale" id="page-finale">
-    <canvas id="starCanvas" class="star-canvas"></canvas>
-    <canvas id="fxCanvas" class="fx-canvas"></canvas>
-    <div class="finale-stage" id="finaleStage">
-      <div class="finale-sky" id="finaleSky"></div>
-      <div class="finale-cake" id="finaleCake"></div>
-      <button class="btn-primary" id="lumosBtn"></button>
-      <button class="btn-primary" id="blowBtn" hidden></button>
-      <div class="breath-meter" id="breathMeter" hidden><div class="breath-fill" id="breathFill"></div></div>
-      <p class="mic-hint" id="micHint" hidden></p>
-      <div class="finale-text" id="finaleSkyText" hidden></div>
-      <div class="lantern-release" id="lanternRelease" hidden>
-        <p id="lanternPrompt"></p>
-        <div class="wish-chips" id="wishChips"></div>
-        <button class="btn-ghost next-btn" id="finaleContinueBtn" hidden>Continue →</button>
-      </div>
-      <div class="finale-final" id="finaleFinal" hidden>
-        <div id="finaleFinalText"></div>
-        <p class="finale-closing" id="finaleClosing"></p>
-        <div class="finale-buttons">
-          <button class="btn-primary" id="readAgainBtn"></button>
-          <button class="btn-ghost" id="backQuietBtn"></button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<div id="navControls" class="nav-controls">
-  <button id="prevBtn" class="nav-btn" aria-label="Previous page">‹</button>
-  <button id="nextBtn" class="nav-btn" aria-label="Next page">›</button>
-</div>
-
-<!-- ============ GAMES OVERLAY ============ -->
-<div id="gamesOverlay" class="games-overlay" hidden>
-  <button class="overlay-close" id="closeGames">✕</button>
-
-  <div class="game-panel" id="panelPotions" hidden>
-    <h3>Potions Class</h3>
-    <p id="potionsIntro"></p>
-    <button class="btn-ghost small skip-game-btn" id="potionsSkip">Skip</button>
-    <div class="potions-progress" id="potionsProgress"></div>
-    <p class="potions-hint" id="potionsHint"></p>
-    <div class="potions-stage">
-      <div class="bowl-3d-scene" id="bowlScene">
-        <div class="bowl-3d" id="cauldron">
-          <div class="bowl-rim"></div>
-          <div class="bowl-batter" id="bowlBatter"></div>
-          <div class="bowl-wall"></div>
-        </div>
-        <div class="bowl-shadow"></div>
-      </div>
-    </div>
-    <div class="ingredient-tray" id="ingredientTray"></div>
-    <div id="stirStage" class="stir-stage" hidden>
-      <p id="stirPrompt"></p>
-      <svg class="stir-ring" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="7"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#c9a35b" stroke-width="7" stroke-linecap="round" id="stirRingProgress" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"/>
-      </svg>
-      <div class="stir-circle" id="stirCircle">🌀</div>
-    </div>
-    <div id="decorateStage" class="decorate-stage" hidden>
-      <p id="decorateTitle"></p>
-      <p class="orbit-hint">Drag the cake itself to drizzle icing. Drag beside it to spin and inspect.</p>
-      <div class="cake-orbit-stage" id="cakeOrbitStage">
-        <div class="cake-orbit" id="cakeOrbit">
-          <div class="cake-preview" id="cakePreview"></div>
-          <canvas class="icing-trail-canvas" id="icingTrailCanvas"></canvas>
-        </div>
-        <div class="cake-orbit-shadow" id="cakeOrbitShadow"></div>
-      </div>
-      <div class="decorate-row" id="flavourRow"></div>
-      <div class="decorate-row" id="icingRow"></div>
-      <div class="decorate-row" id="toppingRow"></div>
-      <input type="text" id="cakeNameInput" maxlength="16" class="cake-name-input">
-      <button class="btn-primary" id="saveCakeBtn"></button>
-      <p id="cakeSavedMsg" hidden></p>
-    </div>
-  </div>
-
-  <div class="game-panel" id="panelFalcon" hidden>
-    <h3>Falcon Flight</h3>
-    <p id="falconIntro"></p>
-    <button class="btn-ghost small skip-game-btn" id="falconSkip">Skip</button>
-    <div class="falcon-hud">
-      <span id="falconScore">Score: 0</span>
-      <span id="falconLives">♥♥♥</span>
-      <span id="falconBest"></span>
-    </div>
-    <canvas id="falconCanvas" class="falcon-canvas"></canvas>
-    <div id="falconGameOver" class="falcon-gameover" hidden>
-      <p id="falconGameOverLine"></p>
-      <button class="btn-primary" id="falconReplay"></button>
-    </div>
-  </div>
-
-  <div class="game-panel" id="panelGuess" hidden>
-    <h3>Guess the Story</h3>
-    <p id="guessIntro"></p>
-    <button class="btn-ghost small skip-game-btn" id="guessSkip">Skip</button>
-    <div id="guessWrap"></div>
-    <p id="guessOutro" hidden></p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="config.js"></script>
-<script src="script.js" defer></script>
-<script type="module" src="analytics.js"></script>
+<script>
+  var target = new Date('2027-09-23T00:00:00+05:30').getTime();
+  var el = document.getElementById('countdown');
+  function tick(){
+    var diff = target - Date.now();
+    if (diff <= 0){ el.textContent = "Aa gaya din. Happy Birthday, Palak."; return; }
+    var d = Math.floor(diff / 86400000);
+    var h = Math.floor(diff / 3600000) % 24;
+    var m = Math.floor(diff / 60000) % 60;
+    var s = Math.floor(diff / 1000) % 60;
+    el.innerHTML =
+      '<span>' + d + '</span>d ' +
+      '<span>' + String(h).padStart(2,'0') + '</span>:' +
+      '<span>' + String(m).padStart(2,'0') + '</span>:' +
+      '<span>' + String(s).padStart(2,'0') + '</span>';
+    requestAnimationFrame(function(){ setTimeout(tick, 1000); });
+  }
+  tick();
+</script>
 </body>
 </html>
